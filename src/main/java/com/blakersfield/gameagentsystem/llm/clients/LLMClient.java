@@ -25,7 +25,7 @@ abstract class LLMClient {
     public ChatMessage chat(List<ChatMessage> messages){
         ChatRequest request = new ChatRequest();
         request.setMessages(messages);
-        request.setModel(apiUrl);
+        request.setModel("gemma3"); //TODO fix, enums, etc
         request.setStream(false);
         try{
             HttpPost httpPost = new HttpPost(new URI(apiUrl)); //this will need to be extracted for the different auth etc. 
@@ -38,7 +38,7 @@ abstract class LLMClient {
                 }
             }
         } catch (Exception e){
-            //TODO return error message
+            e.printStackTrace();
         }
         return null;
     };

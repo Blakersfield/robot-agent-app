@@ -1,17 +1,28 @@
 package com.blakersfield.gameagentsystem.llm.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class ChatResponse {
     private String model;
+    @JsonProperty("created_at")
     private String createdAt;
     private ChatMessage message;
+    @JsonProperty("done_reason")
     private String doneReason;
     private Boolean done;
+    @JsonProperty("total_duration")
     private Long totalDuration;
+    @JsonProperty("load_duration")
     private Long loadDuration;
+    @JsonProperty("prompt_eval_count")
     private Long promptEvalCount;
+    @JsonProperty("prompt_eval_duration")
     private Long promptEvalDuration;
+    @JsonProperty("eval_count")
     private Long evalCount;
+    @JsonProperty("eval_duration")
     private Long evalDuration;
+    public ChatResponse(){}
     public String getModel() {
         return model;
     }

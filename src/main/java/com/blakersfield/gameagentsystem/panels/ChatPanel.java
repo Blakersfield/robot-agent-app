@@ -1,15 +1,22 @@
 package com.blakersfield.gameagentsystem.panels;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.*;
-
 import org.apache.http.impl.client.CloseableHttpClient;
 
+import com.blakersfield.gameagentsystem.llm.clients.OllamaClient;
+import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 import java.awt.*;
 
 public class ChatPanel extends JPanel{
-    public ChatPanel(CloseableHttpClient httpClient){
+    private OllamaClient ollamaClient;
+    private List<ChatMessage> chatMessages = new ArrayList<>();
+
+    public ChatPanel(CloseableHttpClient httpClient, String apiUrl){
         super(new BorderLayout());
+        this.ollamaClient = new OllamaClient(httpClient, apiUrl);
         this.add(new JLabel("Chat Client"));
     
         // --- Chat Output Area ---
@@ -38,12 +45,40 @@ public class ChatPanel extends JPanel{
             String userInput = inputField.getText().trim();
             if (!userInput.isEmpty()) {
                 chatArea.append("You: " + userInput + "\n");
-                // Placeholder LLM response
-                chatArea.append("LLM: (pretend response here)\n\n");
+
+                // Clear input immediately for UX
                 inputField.setText("");
+
+                // Prepare messages for Ollama
+                
+                chatMessages.add(new ChatMessage("user", userInput));
+
+                // Start background task
+                new Thread(() -> {
+                    try {
+                        // --- Send request to Ollama ---
+                        ChatMessage response = ollamaClient.chat(chatMessages);
+                        this.chatMessages.add(response);
+                        String responseContent = response.getContent(); // your actual client
+
+                        // --- Save to SQLite (pseudo-code, fill in later) ---
+                        // saveToDatabase(userInput, response);
+
+                        // --- Update GUI safely from background thread ---
+                        SwingUtilities.invokeLater(() -> {
+                            chatArea.append("LLM: " + responseContent + "\n\n");
+                        });
+
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                        SwingUtilities.invokeLater(() -> {
+                            chatArea.append("LLM: (error occurred)\n\n");
+                        });
+                    }
+                }).start();
             }
         });
-    
+        
         dbQueryButton.addActionListener(e -> {
             try (Connection conn = DriverManager.getConnection("jdbc:sqlite:app.db");
                  Statement stmt = conn.createStatement();

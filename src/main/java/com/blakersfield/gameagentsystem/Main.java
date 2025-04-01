@@ -25,6 +25,7 @@ public class Main {
     private static final String DB_PATH = "app.db";
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final CloseableHttpClient HTTP_CLIENT = HttpClients.createDefault();
+    private static final String OLLAMA_LOCAL_URL = "http://127.0.0.1:11434/api/chat";
     public static void main(String[] args) {
         FlatIntelliJLaf.setup();
         SwingUtilities.invokeLater(Main::createAndShowGUI);
@@ -48,7 +49,7 @@ public class Main {
         // UIManager.put("TabbedPane.tabHeight", 40);
         // UIManager.put("TabbedPane.tabInsets", new Insets(4, 8, 4, 8));
         // UIManager.put("TabbedPane.tabAlignment", SwingConstants.LEFT);
-        tabs.addTab("Chat Client", IconProvider.get("chat"), new ChatPanel(HTTP_CLIENT), "Chat Client");
+        tabs.addTab("Chat Client", IconProvider.get("chat"), new ChatPanel(HTTP_CLIENT, OLLAMA_LOCAL_URL), "Chat Client");
         tabs.addTab("ROS LLM", IconProvider.get("ros_llm"), new InterfacePanel(), "LLM ROS Client");
         tabs.addTab("Settings", IconProvider.get("settings"), new SettingsPanel(), "Configuration");
         tabs.addTab("Flow", IconProvider.get("flow"), new FlowPanel(), "Flowchart Builder");
