@@ -7,20 +7,26 @@ import javax.swing.*;
 import org.apache.http.impl.client.CloseableHttpClient;
 
 import com.blakersfield.gameagentsystem.llm.clients.OllamaClient;
+import com.blakersfield.gameagentsystem.llm.clients.SqlLiteDao;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 import java.awt.*;
 
 public class ChatPanel extends JPanel{
     private OllamaClient ollamaClient;
+    private SqlLiteDao sqlLiteDao;
     private List<ChatMessage> chatMessages = new ArrayList<>();
+    private String chatId;
+    JTextArea chatScreen ;
 
-    public ChatPanel(CloseableHttpClient httpClient, String apiUrl){
+    public ChatPanel(CloseableHttpClient httpClient, SqlLiteDao sqlLiteDao, String apiUrl){
         super(new BorderLayout());
         this.ollamaClient = new OllamaClient(httpClient, apiUrl);
+        this.sqlLiteDao = sqlLiteDao;
         this.add(new JLabel("Chat Client"));
     
         // --- Chat Output Area ---
         JTextArea chatArea = new JTextArea();
+        chatScreen = chatArea;
         chatArea.setEditable(false);
         JScrollPane chatScrollPane = new JScrollPane(chatArea);
         this.add(chatScrollPane, BorderLayout.CENTER);
@@ -45,12 +51,8 @@ public class ChatPanel extends JPanel{
             String userInput = inputField.getText().trim();
             if (!userInput.isEmpty()) {
                 chatArea.append("You: " + userInput + "\n");
-
-                // Clear input immediately for UX
                 inputField.setText("");
 
-                // Prepare messages for Ollama
-                
                 chatMessages.add(new ChatMessage("user", userInput));
 
                 // Start background task
@@ -59,12 +61,10 @@ public class ChatPanel extends JPanel{
                         // --- Send request to Ollama ---
                         ChatMessage response = ollamaClient.chat(chatMessages);
                         this.chatMessages.add(response);
-                        String responseContent = response.getContent(); // your actual client
+                        String responseContent = response.getContent();
 
-                        // --- Save to SQLite (pseudo-code, fill in later) ---
-                        // saveToDatabase(userInput, response);
+                        this.sqlLiteDao.saveChatMessage(response, chatId);
 
-                        // --- Update GUI safely from background thread ---
                         SwingUtilities.invokeLater(() -> {
                             chatArea.append("LLM: " + responseContent + "\n\n");
                         });
@@ -92,5 +92,17 @@ public class ChatPanel extends JPanel{
                 chatArea.append("Error querying DB: " + ex.getMessage() + "\n\n");
             }
         });
+    }
+    private void renderChatMessage(JTextArea chatArea, ChatMessage message){
+        String role = "user".equals(message.getRole()) ? "You: " : "LLM: ";
+        chatArea.append(role+ message.getContent() + "\n\n");
+    }
+    private void loadAndRenderChatHistory(String chatId){
+        this.chatMessages = this.sqlLiteDao.getChatMessagesById(chatId);
+        this.chatId = chatId;
+        chatScreen.setText("");
+        for (ChatMessage message: chatMessages){
+            this.renderChatMessage(chatScreen,message);
+        }
     }
 }

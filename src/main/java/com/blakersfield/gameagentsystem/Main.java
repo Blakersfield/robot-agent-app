@@ -5,6 +5,7 @@ import com.formdev.flatlaf.FlatIntelliJLaf;
 import com.blakersfield.gameagentsystem.panels.FlowPanel;
 import com.blakersfield.gameagentsystem.panels.InterfacePanel;
 import com.blakersfield.gameagentsystem.panels.SettingsPanel;
+import com.blakersfield.gameagentsystem.llm.clients.SqlLiteDao;
 import com.blakersfield.gameagentsystem.panels.ChatPanel;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -19,6 +20,7 @@ import java.awt.FlowLayout;
 import java.awt.Insets;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.rmi.server.ExportException;
 import java.sql.*;
 
 public class Main {
@@ -26,6 +28,8 @@ public class Main {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final CloseableHttpClient HTTP_CLIENT = HttpClients.createDefault();
     private static final String OLLAMA_LOCAL_URL = "http://127.0.0.1:11434/api/chat";
+    private static Connection connection;
+    private static SqlLiteDao sqlLiteDao;
     public static void main(String[] args) {
         FlatIntelliJLaf.setup();
         SwingUtilities.invokeLater(Main::createAndShowGUI);
@@ -44,12 +48,14 @@ public class Main {
             }
         });
 
+        initializeDatabase();
+
         // layout w/tabs 
         JTabbedPane tabs = new JTabbedPane(JTabbedPane.LEFT);
         // UIManager.put("TabbedPane.tabHeight", 40);
         // UIManager.put("TabbedPane.tabInsets", new Insets(4, 8, 4, 8));
         // UIManager.put("TabbedPane.tabAlignment", SwingConstants.LEFT);
-        tabs.addTab("Chat Client", IconProvider.get("chat"), new ChatPanel(HTTP_CLIENT, OLLAMA_LOCAL_URL), "Chat Client");
+        tabs.addTab("Chat Client", IconProvider.get("chat"), new ChatPanel(HTTP_CLIENT, sqlLiteDao, OLLAMA_LOCAL_URL), "Chat Client");
         tabs.addTab("ROS LLM", IconProvider.get("ros_llm"), new InterfacePanel(), "LLM ROS Client");
         tabs.addTab("Settings", IconProvider.get("settings"), new SettingsPanel(), "Configuration");
         tabs.addTab("Flow", IconProvider.get("flow"), new FlowPanel(), "Flowchart Builder");
@@ -65,15 +71,26 @@ public class Main {
 
         frame.add(tabs);
         frame.setVisible(true);
-        initializeDatabase();
     }
 
-    private static void initializeDatabase() {
-        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + DB_PATH);
-             Statement stmt = conn.createStatement()) {
-            stmt.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, content TEXT)");
+    private static void initializeDatabase(){
+        Statement stmt = null;
+        try {
+            connection = DriverManager.getConnection("jdbc:sqlite:" + DB_PATH);
+            stmt = connection.createStatement();
+            sqlLiteDao = new SqlLiteDao(connection);
+            stmt.execute("CREATE TABLE IF NOT EXISTS chat_messages (chat_message_id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id TEXT, role TEXT, content TEXT)");
+            stmt.execute("CREATE TABLE IF NOT EXISTS lang_chain_nodes (node_id INTEGER PRIMARY KEY AUTOINCREMENT, lang_chain_id INTEGER, next_node_id INTEGER)");
+            //maybe edges should be represented separately for language graphs. 
+            stmt.execute("CREATE TABLE IF NOT EXISTS agents (agent_id INTEGER PRIMARY KEY AUTOINCREMENT, system_content TEXT)");
         } catch (SQLException e) {
             System.err.println("Database init failed: " + e.getMessage());
+        } finally {
+            try {
+                stmt.close();
+            } catch(Exception e) {
+                System.err.println("Error closing statement connection");
+            }
         }
     }
 

@@ -1,0 +1,134 @@
+package com.blakersfield.gameagentsystem.llm.clients;
+
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+import com.blakersfield.gameagentsystem.llm.model.LangChainNode;
+import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
+
+public class SqlLiteDao {
+    private final Connection connection;
+
+    public SqlLiteDao(Connection connection){
+        this.connection = connection;
+    }
+
+    public void saveChatMessage(ChatMessage chatMessage, String chatId){
+        String sql = "INSERT INTO chat_messages(chat_id, role, content) VALUES (?, ?, ?)";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, chatId);
+            stmt.setString(2, chatMessage.getRole());
+            stmt.setString(3, chatMessage.getContent());
+            stmt.executeUpdate();
+        } catch (SQLException e){
+            e.printStackTrace(); // TODO: replace with logger
+        }
+    }
+
+    public List<ChatMessage> getChatMessagesById(String chatId) {
+        List<ChatMessage> messages = new ArrayList<>();
+        String sql = "SELECT role, content FROM chat_messages WHERE chat_id = ? ORDER BY chat_message_id ASC";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, chatId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    String role = rs.getString("role");
+                    String content = rs.getString("content");
+                    messages.add(new ChatMessage(role, content));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace(); // TODO: replace with logger
+        }
+        return messages;
+    }
+
+    public void saveLangChainNode(int langChainId, Integer nextNodeId) {
+        String sql = "INSERT INTO lang_chain_nodes(lang_chain_id, next_node_id) VALUES (?, ?)";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, langChainId);
+            if (nextNodeId != null) {
+                stmt.setInt(2, nextNodeId);
+            } else {
+                stmt.setNull(2, Types.INTEGER);
+            }
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace(); // TODO: replace with logger
+        }
+    }
+
+    public void saveLangChainNodes(List<LangChainNode> nodes) {
+        for (LangChainNode node : nodes) {
+            saveLangChainNode(node.getLangChainId(), node.getNextNodeId());
+        }
+    }
+
+    public List<LangChainNode> getLangChainNodesByLangChainId(int langChainId) {
+        List<LangChainNode> nodes = new ArrayList<>();
+        String sql = "SELECT node_id, lang_chain_id, next_node_id FROM lang_chain_nodes WHERE lang_chain_id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, langChainId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    int nodeId = rs.getInt("node_id");
+                    int nextNodeId = rs.getInt("next_node_id");
+                    if (rs.wasNull()) {
+                        nodes.add(new LangChainNode(nodeId, langChainId, null));
+                    } else {
+                        nodes.add(new LangChainNode(nodeId, langChainId, nextNodeId));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace(); // TODO: replace with logger
+        }
+        return nodes;
+    }
+
+    public LangChainNode getLangChainNodeById(int nodeId) {
+        String sql = "SELECT node_id, lang_chain_id, next_node_id FROM lang_chain_nodes WHERE node_id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, nodeId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    int langChainId = rs.getInt("lang_chain_id");
+                    int nextNodeId = rs.getInt("next_node_id");
+                    if (rs.wasNull()) {
+                        return new LangChainNode(nodeId, langChainId, null);
+                    } else {
+                        return new LangChainNode(nodeId, langChainId, nextNodeId);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace(); // TODO: replace with logger
+        }
+        return null;
+    }
+
+    public void saveAgent(String systemContent) {
+        String sql = "INSERT INTO agents(system_content) VALUES (?)";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, systemContent);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace(); // TODO: replace with logger
+        }
+    }
+
+    public String getAgentById(int agentId) {
+        String sql = "SELECT system_content FROM agents WHERE agent_id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, agentId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("system_content");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace(); // TODO: replace with logger
+        }
+        return null;
+    }
+}
