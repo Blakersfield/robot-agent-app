@@ -131,4 +131,27 @@ public class SqlLiteDao {
         }
         return null;
     }
+    public List<String> getChatIds(){
+        String sql = "select distinct chat_id from chat_messages";
+        List<String> result = new ArrayList<String>();
+        try (PreparedStatement stmt = connection.prepareStatement(sql);
+            ResultSet rs = stmt.executeQuery()){
+            while (rs.next()){
+                result.add(rs.getString(1));
+            }
+        } catch (Exception e){
+            e.printStackTrace(); // TODO: replace with logger
+        }
+        return result;
+    }
+    public void updateChatId(String oldId, String newId){
+        String sql = "update chat_messages set chat_id = ? where chat_id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)){
+            stmt.setString(1, newId);
+            stmt.setString(2, newId);
+            stmt.executeUpdate();
+        } catch (Exception e){
+            e.printStackTrace(); // TODO: replace with logger
+        }
+    }
 }
