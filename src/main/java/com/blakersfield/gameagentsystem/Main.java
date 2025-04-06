@@ -5,6 +5,7 @@ import com.formdev.flatlaf.FlatIntelliJLaf;
 import com.blakersfield.gameagentsystem.panels.FlowPanel;
 import com.blakersfield.gameagentsystem.panels.InterfacePanel;
 import com.blakersfield.gameagentsystem.panels.SettingsPanel;
+import com.blakersfield.gameagentsystem.config.Configuration;
 import com.blakersfield.gameagentsystem.llm.clients.SqlLiteDao;
 import com.blakersfield.gameagentsystem.panels.ChatPanel;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -52,23 +53,14 @@ public class Main {
 
         // layout w/tabs 
         JTabbedPane tabs = new JTabbedPane(JTabbedPane.LEFT);
-        // UIManager.put("TabbedPane.tabHeight", 40);
-        // UIManager.put("TabbedPane.tabInsets", new Insets(4, 8, 4, 8));
-        // UIManager.put("TabbedPane.tabAlignment", SwingConstants.LEFT);
-        tabs.addTab("Chat Client", IconProvider.get("chat"), new ChatPanel(HTTP_CLIENT, sqlLiteDao, OLLAMA_LOCAL_URL), "Chat Client");
-        tabs.addTab("ROS LLM", IconProvider.get("ros_llm"), new InterfacePanel(), "LLM ROS Client");
-        tabs.addTab("Settings", IconProvider.get("settings"), new SettingsPanel(), "Configuration");
-        tabs.addTab("Flow", IconProvider.get("flow"), new FlowPanel(), "Flowchart Builder");
-        // tabs.addTab(null, new ChatPanel(HTTP_CLIENT));
-        // tabs.addTab(null, new InterfacePanel());
-        // tabs.addTab(null, new SettingsPanel());
-        // tabs.addTab(null, new FlowPanel());
-        // tabs.setTabComponentAt(0, createTabComponent("Chat Client", IconProvider.get("chat")));
-        // tabs.setTabComponentAt(1, createTabComponent("LLM ROS Client", IconProvider.get("ros_llm")));
-        // tabs.setTabComponentAt(2, createTabComponent("Configuration", IconProvider.get("settings")));
-        // tabs.setTabComponentAt(3, createTabComponent("Flowchart Builder", IconProvider.get("flow")));
-
-
+        // tabs.addTab("Chat Client", IconProvider.get("chat"), new ChatPanel(HTTP_CLIENT, sqlLiteDao, OLLAMA_LOCAL_URL), "Chat Client");
+        // tabs.addTab("ROS LLM", IconProvider.get("ros_llm"), new InterfacePanel(), "LLM ROS Client");
+        // tabs.addTab("Settings", IconProvider.get("settings"), new SettingsPanel(sqlLiteDao), "Configuration");
+        // tabs.addTab("Flow", IconProvider.get("flow"), new FlowPanel(), "Flowchart Builder");
+        tabs.addTab(null, IconProvider.get("chat"), new ChatPanel(HTTP_CLIENT, sqlLiteDao, OLLAMA_LOCAL_URL), null);
+        tabs.addTab(null, IconProvider.get("ros_llm"), new InterfacePanel(), null);
+        tabs.addTab(null, IconProvider.get("settings"), new SettingsPanel(sqlLiteDao), null);
+        tabs.addTab(null, IconProvider.get("flow"), new FlowPanel(), null);
         frame.add(tabs);
         frame.setVisible(true);
     }
@@ -83,6 +75,12 @@ public class Main {
             stmt.execute("CREATE TABLE IF NOT EXISTS lang_chain_nodes (node_id INTEGER PRIMARY KEY AUTOINCREMENT, lang_chain_id INTEGER, next_node_id INTEGER)");
             //maybe edges should be represented separately for language graphs. 
             stmt.execute("CREATE TABLE IF NOT EXISTS agents (agent_id INTEGER PRIMARY KEY AUTOINCREMENT, system_content TEXT)");
+            stmt.execute("CREATE TABLE IF NOT EXISTS config_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT)");
+            initConfigSetting(Configuration.OLLAMA_BASE_URL, Configuration.DEFAULT_OLLAMA_BASE_URL);
+            initConfigSetting(Configuration.OLLAMA_MODEL, Configuration.DEFAULT_OLLAMA_MODEL);
+            initConfigSetting(Configuration.OPENAI_API_KEY, Configuration.DEFAULT_OPENAI_API_KEY);
+            initConfigSetting(Configuration.OPENAI_API_SECRET, Configuration.DEFAULT_OPENAI_API_SECRET);
+            initConfigSetting(Configuration.OPENAI_MODEL, Configuration.DEFAULT_OPENAI_MODEL);
         } catch (SQLException e) {
             System.err.println("Database init failed: " + e.getMessage());
         } finally {
@@ -92,6 +90,9 @@ public class Main {
                 System.err.println("Error closing statement connection");
             }
         }
+    }
+    private static void initConfigSetting(String key, String value){
+        if (sqlLiteDao.getConfigSetting(key)==null) {sqlLiteDao.saveConfigSetting(key, value);}
     }
 
     // private static Component createTabComponent(String title, Icon icon) {

@@ -148,10 +148,43 @@ public class SqlLiteDao {
         String sql = "update chat_messages set chat_id = ? where chat_id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)){
             stmt.setString(1, newId);
-            stmt.setString(2, newId);
+            stmt.setString(2, oldId);
             stmt.executeUpdate();
         } catch (Exception e){
+        }
+    }
+    public String getConfigSetting(String settingKey){
+        String sql = "select setting_value from config_settings where setting_key = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)){
+            stmt.setString(1, settingKey);
+            try(ResultSet rs = stmt.executeQuery()){
+                if (rs.next()){
+                    return rs.getString("setting_value");
+                }
+            }
+        } catch (Exception e){
             e.printStackTrace(); // TODO: replace with logger
+        }
+        return null;
+    }
+    public void saveConfigSetting(String settingKey, String settingValue){
+        String sql = "insert into config_settings (setting_key, setting_value) values (?,?)";
+        try (PreparedStatement stmt = this.connection.prepareStatement(sql)){
+            stmt.setString(1, settingValue);
+            stmt.setString(2, settingKey);
+            stmt.executeUpdate();
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+    public void updateConfigSetting(String settingKey, String settingValue){
+        String sql = "update config_settings set setting_value=? where setting_key=?";
+        try (PreparedStatement stmt = this.connection.prepareStatement(sql)){
+            stmt.setString(1, settingValue);
+            stmt.setString(2, settingKey);
+            stmt.executeUpdate();
+        } catch (Exception e){
+            e.printStackTrace();
         }
     }
 }

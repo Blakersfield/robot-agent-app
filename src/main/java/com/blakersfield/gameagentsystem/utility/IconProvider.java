@@ -7,7 +7,7 @@ import java.util.Map;
 
 public class IconProvider {
     private static final String ICONS_PATH = "icons/"; 
-    private static final int ICON_SIZE = 50;
+    private static final int ICON_SIZE = 150;
     private static final Map<String, Icon> iconCache = new HashMap<>();
 
     public static Icon get(String name) {

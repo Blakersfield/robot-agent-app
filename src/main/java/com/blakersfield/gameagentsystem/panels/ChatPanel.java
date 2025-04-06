@@ -52,14 +52,17 @@ public class ChatPanel extends JPanel {
 
         JTextField chatNameField = new JTextField(15);
         JButton updateChatButton = new JButton("Change Chat Name");
+        JButton newChatButton = new JButton("New Chat");
         toolPanel.add(chatNameField);
         toolPanel.add(updateChatButton);
+        toolPanel.add(newChatButton);
         this.add(toolPanel, BorderLayout.NORTH);
 
-        updateChatSelector(); //refresh selector each time
         if (chatId == null) {
             chatId = UUID.randomUUID().toString();
         }
+        updateChatSelector(); //refresh selector each time
+
 
         // --- Input Logic ---
         Runnable sendAction = () -> {
@@ -99,12 +102,21 @@ public class ChatPanel extends JPanel {
             }
         });
 
+        newChatButton.addActionListener(e -> {
+            this.chatMessages = new ArrayList<>();
+            this.chatId = UUID.randomUUID().toString();
+            chatSelector.setSelectedItem(this.chatId);
+            updateChatSelector();
+            chatPane.setText("");
+            chatPane.repaint();
+        });
+
         // --- Chat Selection Logic ---
         chatSelector.addActionListener(e -> {
             String selected = (String) chatSelector.getSelectedItem();
-            if (selected != null && !selected.equals(chatId)) {
-                loadAndRenderChatHistory(selected);
-            }
+            // if (selected != null && !selected.equals(chatId)) {
+            loadAndRenderChatHistory(selected);
+            // }
         });
 
         // Load initial chat
@@ -136,17 +148,23 @@ public class ChatPanel extends JPanel {
     private void renderSystemMessage(String message) {
         StyledDocument doc = chatPane.getStyledDocument();
         SimpleAttributeSet style = new SimpleAttributeSet();
-        StyleConstants.setForeground(style, Color.GRAY);
+        StyleConstants.setForeground(style, Color.RED);
         appendToPane(doc, message, style);
     }
 
     private void loadAndRenderChatHistory(String chatId) {
-        this.chatId = chatId;
-        this.chatMessages = this.sqlLiteDao.getChatMessagesById(chatId);
+        List<ChatMessage> loadedMessages = sqlLiteDao.getChatMessagesById(chatId);
         chatPane.setText("");
-        for (ChatMessage msg : chatMessages) {
-            renderChatMessage(msg);
+        if (loadedMessages!=null && loadedMessages.size()>0){
+            this.chatId = chatId;
+            this.chatMessages = loadedMessages;
+            for (ChatMessage msg : chatMessages) {
+                renderChatMessage(msg);
+            }
         }
+
+
+        chatPane.repaint();
     }
 
     private void updateChatSelector() {
