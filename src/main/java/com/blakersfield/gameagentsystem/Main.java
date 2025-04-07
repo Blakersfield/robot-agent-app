@@ -37,7 +37,7 @@ public class Main {
     }
 
     private static void createAndShowGUI() {
-        JFrame frame = new JFrame("Game Agent System");
+        JFrame frame = new JFrame("Chat Agent Client");
         frame.setSize(1000, 700);
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE); // set close behavior so client, other resources can be termed
         frame.addWindowListener(new WindowAdapter() {

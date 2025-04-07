@@ -15,4 +15,7 @@ public class Configuration {
 
     public static String OPENAI_MODEL = "OPENAI_MODEL";
     public static String DEFAULT_OPENAI_MODEL = "gpt-4";
+
+    public static String ENCRYPTION_CHECK_KEY = "ENCRYPTION_CHECK_KEY";
+    public static String ENCRYPTION_CHECK_TRUTH = "EUREKA";
 }

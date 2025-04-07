@@ -2,15 +2,50 @@ package com.blakersfield.gameagentsystem.llm.clients;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+
+import com.blakersfield.gameagentsystem.config.Configuration;
 import com.blakersfield.gameagentsystem.llm.model.LangChainNode;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 
 public class SqlLiteDao {
     private final Connection connection;
+    private static final String KEY = "s3cr3tKey1234567"; //TODO replace with input value/admin key
+    private static final String ALGORITHM = "AES";
 
     public SqlLiteDao(Connection connection){
         this.connection = connection;
+    }
+
+    private static SecretKeySpec getKeySpec() {
+        return new SecretKeySpec(KEY.getBytes(), ALGORITHM);
+    }
+
+    private String encrypt(String plainText) {
+        try {
+            Cipher cipher = Cipher.getInstance(ALGORITHM);
+            cipher.init(Cipher.ENCRYPT_MODE, getKeySpec());
+            byte[] encrypted = cipher.doFinal(plainText.getBytes("UTF-8"));
+            return Base64.getEncoder().encodeToString(encrypted);
+        } catch (Exception e) {
+            throw new RuntimeException("Error encrypting string", e);
+        }
+    }
+
+    private String decrypt(String encryptedBase64) {
+        try {
+            Cipher cipher = Cipher.getInstance(ALGORITHM);
+            cipher.init(Cipher.DECRYPT_MODE, getKeySpec());
+            byte[] decoded = Base64.getDecoder().decode(encryptedBase64);
+            byte[] decrypted = cipher.doFinal(decoded);
+            return new String(decrypted, "UTF-8");
+        } catch (Exception e) {
+            throw new RuntimeException("Error decrypting string", e);
+        }
     }
 
     public void saveChatMessage(ChatMessage chatMessage, String chatId){
@@ -159,7 +194,7 @@ public class SqlLiteDao {
             stmt.setString(1, settingKey);
             try(ResultSet rs = stmt.executeQuery()){
                 if (rs.next()){
-                    return rs.getString("setting_value");
+                    return this.decrypt(rs.getString("setting_value"));
                 }
             }
         } catch (Exception e){
@@ -168,23 +203,30 @@ public class SqlLiteDao {
         return null;
     }
     public void saveConfigSetting(String settingKey, String settingValue){
+        String encryptedValue = this.encrypt(settingValue);
         String sql = "insert into config_settings (setting_key, setting_value) values (?,?)";
         try (PreparedStatement stmt = this.connection.prepareStatement(sql)){
-            stmt.setString(1, settingValue);
-            stmt.setString(2, settingKey);
+            stmt.setString(1, settingKey);
+            stmt.setString(2, encryptedValue);
             stmt.executeUpdate();
         } catch (Exception e){
             e.printStackTrace();
         }
     }
     public void updateConfigSetting(String settingKey, String settingValue){
+        String encryptedValue = this.encrypt(settingValue);
         String sql = "update config_settings set setting_value=? where setting_key=?";
         try (PreparedStatement stmt = this.connection.prepareStatement(sql)){
-            stmt.setString(1, settingValue);
+            stmt.setString(1, encryptedValue);
             stmt.setString(2, settingKey);
             stmt.executeUpdate();
         } catch (Exception e){
             e.printStackTrace();
         }
+    }
+
+    public boolean isDecryptionKeyValue(String key){
+        String encryptedCheck = this.getConfigSetting(Configuration.ENCRYPTION_CHECK_KEY);
+        return Configuration.ENCRYPTION_CHECK_TRUTH.equals(this.decrypt(encryptedCheck));
     }
 }
