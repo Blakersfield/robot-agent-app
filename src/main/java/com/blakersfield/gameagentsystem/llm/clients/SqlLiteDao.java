@@ -9,7 +9,6 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
 import com.blakersfield.gameagentsystem.config.Configuration;
-import com.blakersfield.gameagentsystem.llm.model.LangChainNode;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 
 public class SqlLiteDao {
@@ -93,54 +92,54 @@ public class SqlLiteDao {
         }
     }
 
-    public void saveLangChainNodes(List<LangChainNode> nodes) {
-        for (LangChainNode node : nodes) {
-            saveLangChainNode(node.getLangChainId(), node.getNextNodeId());
-        }
-    }
+    // public void saveLangChainNodes(List<LangChainNode> nodes) {
+    //     for (LangChainNode node : nodes) {
+    //         saveLangChainNode(node.getLangChainId(), node.getNextNodeId());
+    //     }
+    // }
 
-    public List<LangChainNode> getLangChainNodesByLangChainId(int langChainId) {
-        List<LangChainNode> nodes = new ArrayList<>();
-        String sql = "SELECT node_id, lang_chain_id, next_node_id FROM lang_chain_nodes WHERE lang_chain_id = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, langChainId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    int nodeId = rs.getInt("node_id");
-                    int nextNodeId = rs.getInt("next_node_id");
-                    if (rs.wasNull()) {
-                        nodes.add(new LangChainNode(nodeId, langChainId, null));
-                    } else {
-                        nodes.add(new LangChainNode(nodeId, langChainId, nextNodeId));
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace(); // TODO: replace with logger
-        }
-        return nodes;
-    }
+    // public List<LangChainNode> getLangChainNodesByLangChainId(int langChainId) {
+    //     List<LangChainNode> nodes = new ArrayList<>();
+    //     String sql = "SELECT node_id, lang_chain_id, next_node_id FROM lang_chain_nodes WHERE lang_chain_id = ?";
+    //     try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+    //         stmt.setInt(1, langChainId);
+    //         try (ResultSet rs = stmt.executeQuery()) {
+    //             while (rs.next()) {
+    //                 int nodeId = rs.getInt("node_id");
+    //                 int nextNodeId = rs.getInt("next_node_id");
+    //                 if (rs.wasNull()) {
+    //                     nodes.add(new LangChainNode(nodeId, langChainId, null));
+    //                 } else {
+    //                     nodes.add(new LangChainNode(nodeId, langChainId, nextNodeId));
+    //                 }
+    //             }
+    //         }
+    //     } catch (SQLException e) {
+    //         e.printStackTrace(); // TODO: replace with logger
+    //     }
+    //     return nodes;
+    // }
 
-    public LangChainNode getLangChainNodeById(int nodeId) {
-        String sql = "SELECT node_id, lang_chain_id, next_node_id FROM lang_chain_nodes WHERE node_id = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setInt(1, nodeId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    int langChainId = rs.getInt("lang_chain_id");
-                    int nextNodeId = rs.getInt("next_node_id");
-                    if (rs.wasNull()) {
-                        return new LangChainNode(nodeId, langChainId, null);
-                    } else {
-                        return new LangChainNode(nodeId, langChainId, nextNodeId);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace(); // TODO: replace with logger
-        }
-        return null;
-    }
+    // public LangChainNode getLangChainNodeById(int nodeId) {
+    //     String sql = "SELECT node_id, lang_chain_id, next_node_id FROM lang_chain_nodes WHERE node_id = ?";
+    //     try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+    //         stmt.setInt(1, nodeId);
+    //         try (ResultSet rs = stmt.executeQuery()) {
+    //             if (rs.next()) {
+    //                 int langChainId = rs.getInt("lang_chain_id");
+    //                 int nextNodeId = rs.getInt("next_node_id");
+    //                 if (rs.wasNull()) {
+    //                     return new LangChainNode(nodeId, langChainId, null);
+    //                 } else {
+    //                     return new LangChainNode(nodeId, langChainId, nextNodeId);
+    //                 }
+    //             }
+    //         }
+    //     } catch (SQLException e) {
+    //         e.printStackTrace(); // TODO: replace with logger
+    //     }
+    //     return null;
+    // }
 
     public void saveAgent(String systemContent) {
         String sql = "INSERT INTO agents(system_content) VALUES (?)";

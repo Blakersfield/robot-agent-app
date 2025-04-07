@@ -8,6 +8,15 @@ public class ChatMessage {
         this.role = role;
         this.content = content;
     }
+    public static ChatMessage user(String content){
+        return new ChatMessage("user",content);
+    }
+    public static ChatMessage system(String content){
+        return new ChatMessage("system",content);
+    }
+    public static ChatMessage agent(String content){
+        return new ChatMessage("agent",content);
+    }
     public String getRole() {
         return role;
     }

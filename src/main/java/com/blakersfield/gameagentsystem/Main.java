@@ -57,8 +57,8 @@ public class Main {
         // tabs.addTab("ROS LLM", IconProvider.get("ros_llm"), new InterfacePanel(), "LLM ROS Client");
         // tabs.addTab("Settings", IconProvider.get("settings"), new SettingsPanel(sqlLiteDao), "Configuration");
         // tabs.addTab("Flow", IconProvider.get("flow"), new FlowPanel(), "Flowchart Builder");
-        tabs.addTab(null, IconProvider.get("chat"), new ChatPanel(HTTP_CLIENT, sqlLiteDao, OLLAMA_LOCAL_URL), null);
-        tabs.addTab(null, IconProvider.get("ros_llm"), new InterfacePanel(), null);
+        tabs.addTab(null, IconProvider.get("chat"), new ChatPanel(HTTP_CLIENT, sqlLiteDao, OLLAMA_LOCAL_URL), null); //TODO init LLM clients in MAIN
+        tabs.addTab(null, IconProvider.get("ros_llm"), new InterfacePanel(HTTP_CLIENT, sqlLiteDao, OLLAMA_LOCAL_URL), null);
         tabs.addTab(null, IconProvider.get("settings"), new SettingsPanel(sqlLiteDao), null);
         tabs.addTab(null, IconProvider.get("flow"), new FlowPanel(), null);
         frame.add(tabs);
