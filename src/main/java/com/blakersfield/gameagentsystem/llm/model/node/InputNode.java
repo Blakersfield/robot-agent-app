@@ -16,7 +16,7 @@ public class InputNode implements LangNode<String, String> {
     }
 
     @Override
-    public LangNode<String, ?> getNextAgent() {
+    public LangNode<String, ?> next() {
         return next;
     }
 
