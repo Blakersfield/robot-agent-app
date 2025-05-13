@@ -4,13 +4,11 @@ import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.blakersfield.gameagentsystem.llm.clients.OllamaClient;
+import com.blakersfield.gameagentsystem.llm.clients.LLMClient;
 import com.blakersfield.gameagentsystem.llm.clients.SqlLiteDao;
-import com.blakersfield.gameagentsystem.llm.model.node.LangNode;
-import com.blakersfield.gameagentsystem.llm.model.node.agent.Agent;
+import com.blakersfield.gameagentsystem.llm.model.node.Node;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.data.Rule;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.data.RuleComparisonResult;
-import com.blakersfield.gameagentsystem.llm.model.node.agent.data.RuleModification;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,7 +18,7 @@ public class RuleExtractionAgent extends Agent<String, String> {
     private static final Logger logger = LoggerFactory.getLogger(RuleExtractionAgent.class);
     private static final int MAX_RETRIES = 3;
     
-    private final OllamaClient ollamaClient;
+    private final LLMClient llmClient;
     private final SqlLiteDao sqliteDao;
     private final String extractionPrompt;
     private final String comparisonPrompt;
@@ -28,8 +26,8 @@ public class RuleExtractionAgent extends Agent<String, String> {
     private final ObjectMapper objectMapper;
     private Agent<?, ?> nextAgent;
 
-    public RuleExtractionAgent(OllamaClient ollamaClient, SqlLiteDao sqliteDao) {
-        this.ollamaClient = Objects.requireNonNull(ollamaClient, "OllamaClient cannot be null");
+    public RuleExtractionAgent(LLMClient llmClient, SqlLiteDao sqliteDao) {
+        this.llmClient = Objects.requireNonNull(llmClient, "OllamaClient cannot be null");
         this.sqliteDao = Objects.requireNonNull(sqliteDao, "SqlLiteDao cannot be null");
         this.objectMapper = new ObjectMapper();
         this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
@@ -67,25 +65,17 @@ public class RuleExtractionAgent extends Agent<String, String> {
 
     @Override
     public void act() {
-        setProcessing();
-        try {
-            List<ChatMessage> prompt = List.of(
-                ChatMessage.system(extractionPrompt),
-                ChatMessage.user(input)
-            );
+        List<ChatMessage> prompt = List.of(
+            ChatMessage.system(extractionPrompt),
+            ChatMessage.user(input)
+        );
 
-            ChatMessage response = ollamaClient.chat(prompt);
-            this.output = response.getContent();
-            setCompleted();
-        } catch (Exception e) {
-            setError(e);
-            logger.error("Error processing rules", e);
-            throw new RuntimeException("Failed to process rules", e);
-        }
+        ChatMessage response = llmClient.chat(prompt);
+        this.output = response.getContent();
     }
 
     @Override
-    public LangNode<?, ?> next() {
+    public Node next() {
         return null; // This is the end of the chain
     }
 
@@ -127,5 +117,11 @@ public class RuleExtractionAgent extends Agent<String, String> {
             logger.error("Failed to convert object to JSON", e);
             return "{}";
         }
+    }
+
+    @Override
+    public void reset() {
+        this.input=null;
+        this.output=null;
     }
 }

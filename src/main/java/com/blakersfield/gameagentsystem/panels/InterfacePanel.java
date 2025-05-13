@@ -7,11 +7,10 @@ import javax.swing.text.*;
 
 import org.apache.http.impl.client.CloseableHttpClient;
 
-import com.blakersfield.gameagentsystem.llm.clients.OllamaClient;
+import com.blakersfield.gameagentsystem.llm.clients.LLMClient;
 import com.blakersfield.gameagentsystem.llm.clients.SqlLiteDao;
-import com.blakersfield.gameagentsystem.llm.model.LangChain;
-import com.blakersfield.gameagentsystem.llm.model.LangChainBuilder;
 import com.blakersfield.gameagentsystem.llm.model.node.InputNode;
+import com.blakersfield.gameagentsystem.llm.model.node.NodeChainBuilder;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.GameActionAgent;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.InputTypeInterpreterAgent;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.RuleExtractionAgent;
@@ -21,19 +20,17 @@ import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 import java.util.List;
 
 public class InterfacePanel extends ChatPanel {
-    private LangChain<String> langChain;
-    private OllamaClient ollamaClient;
+    private NodeChainBuilder chain;
 
-    public InterfacePanel(CloseableHttpClient httpClient, SqlLiteDao sqlLiteDao, String apiUrl) {
-        super(httpClient, sqlLiteDao, apiUrl);
-        this.ollamaClient = new OllamaClient(httpClient, apiUrl);
+    public InterfacePanel(CloseableHttpClient httpClient, SqlLiteDao sqlLiteDao, LLMClient llmClient) {
+        super(httpClient, sqlLiteDao, llmClient);
         initializeLangChain();
     }
 
     private void initializeLangChain() {
         // Create agents
-        GameActionAgent gameActionAgent = new GameActionAgent(ollamaClient);
-        RuleExtractionAgent ruleExtractionAgent = new RuleExtractionAgent(ollamaClient, sqlLiteDao);
+        GameActionAgent gameActionAgent = new GameActionAgent(llmClient);
+        RuleExtractionAgent ruleExtractionAgent = new RuleExtractionAgent(llmClient, sqlLiteDao);
 
         // Create choices for input type interpreter
         List<Choice> choices = List.of(
@@ -41,19 +38,12 @@ public class InterfacePanel extends ChatPanel {
             new Choice("rule", "Extract game rules", ruleExtractionAgent)
         );
 
-        InputTypeInterpreterAgent interpreterAgent = new InputTypeInterpreterAgent(choices, ollamaClient);
-        InputNode inputNode = new InputNode(interpreterAgent);
+        InputTypeInterpreterAgent interpreterAgent = new InputTypeInterpreterAgent(choices, llmClient);
+        
 
         // Build the langchain
-        langChain = new LangChainBuilder<String>()
-            .addNode(inputNode)
-            .addNode(interpreterAgent)
-            .addNode(gameActionAgent)
-            .addNode(ruleExtractionAgent)
-            .connect(inputNode, interpreterAgent)
-            .connect(interpreterAgent, gameActionAgent)
-            .connect(interpreterAgent, ruleExtractionAgent)
-            .build();
+        InputNode inputNode = new InputNode();
+        chain = new NodeChainBuilder<>();
     }
 
     @Override
@@ -70,8 +60,9 @@ public class InterfacePanel extends ChatPanel {
         // Process input through langchain
         new Thread(() -> {
             try {
-                langChain.run(userInput);
-                String response = langChain.output();
+                // this.chain.build().setInput(userInput);
+                chain.execute(userInput);
+                String response = (String) chain.getLastOutput();
                 
                 // Create and display system response
                 ChatMessage systemMsg = new ChatMessage("system", response);

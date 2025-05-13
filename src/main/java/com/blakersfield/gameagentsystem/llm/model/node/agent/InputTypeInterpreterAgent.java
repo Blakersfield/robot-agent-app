@@ -2,19 +2,19 @@ package com.blakersfield.gameagentsystem.llm.model.node.agent;
 
 import java.util.List;
 
-import com.blakersfield.gameagentsystem.llm.clients.OllamaClient;
+import com.blakersfield.gameagentsystem.llm.clients.LLMClient;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.data.Choice;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 import java.util.Optional;
 
 public class InputTypeInterpreterAgent extends Agent<String, String> {
     private final List<Choice> choices;
-    private final OllamaClient ollamaClient;
+    private final LLMClient llmClient;
     private Agent<String, ?> chosenNextAgent;
 
-    public InputTypeInterpreterAgent(List<Choice> choices, OllamaClient ollamaClient) {
+    public InputTypeInterpreterAgent(List<Choice> choices, LLMClient llmClient) {
         this.choices = choices;
-        this.ollamaClient = ollamaClient;
+        this.llmClient = llmClient;
     }
 
     @Override
@@ -24,7 +24,7 @@ public class InputTypeInterpreterAgent extends Agent<String, String> {
             ChatMessage.user(input)
         );
 
-        ChatMessage response = ollamaClient.chat(prompt);
+        ChatMessage response = llmClient.chat(prompt);
         String selectedKey = extractChoiceKey(response.getContent());
 
         Optional<Choice> selected = choices.stream()
@@ -69,5 +69,11 @@ public class InputTypeInterpreterAgent extends Agent<String, String> {
     private String extractChoiceKey(String rawOutput) {
         // Strip quotes, whitespace, etc.
         return rawOutput.replaceAll("[\"\\n\\r]", "").trim();
+    }
+
+    @Override
+    public void reset() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'reset'");
     }
 }

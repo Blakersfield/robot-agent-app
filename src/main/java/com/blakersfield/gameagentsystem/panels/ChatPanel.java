@@ -14,16 +14,18 @@ import javax.swing.text.*;
 
 import org.apache.http.impl.client.CloseableHttpClient;
 
-import com.blakersfield.gameagentsystem.llm.clients.OllamaClient;
-import com.blakersfield.gameagentsystem.llm.clients.SqlLiteDao;
+import com.blakersfield.gameagentsystem.llm.clients.*;
+import com.blakersfield.gameagentsystem.llm.model.node.InputNode;
+import com.blakersfield.gameagentsystem.llm.model.node.NodeChainBuilder;
+import com.blakersfield.gameagentsystem.llm.model.node.agent.BasicChatAgent;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 
 public class ChatPanel extends JPanel {
-    protected OllamaClient ollamaClient;
+    protected LLMClient llmClient;
     protected SqlLiteDao sqlLiteDao;
     protected List<ChatMessage> chatMessages = new ArrayList<>();
     protected String chatId;
-
+    private NodeChainBuilder chain;
     protected JTextPane chatPane;
     protected JScrollPane chatScrollPane;
     protected JTextField inputField;
@@ -33,11 +35,11 @@ public class ChatPanel extends JPanel {
     protected JButton updateChatButton;
     protected JButton newChatButton;
 
-    public ChatPanel(CloseableHttpClient httpClient, SqlLiteDao sqlLiteDao, String apiUrl) {
+    public ChatPanel(CloseableHttpClient httpClient, SqlLiteDao sqlLiteDao, LLMClient llmClient) {
         super(new BorderLayout());
-        this.ollamaClient = new OllamaClient(httpClient, apiUrl);
+        this.llmClient = llmClient;
         this.sqlLiteDao = sqlLiteDao;
-
+        this.chain = initChain();
         if (chatId == null) {
             chatId = UUID.randomUUID().toString();
         }
@@ -125,7 +127,9 @@ public class ChatPanel extends JPanel {
 
         new Thread(() -> {
             try {
-                ChatMessage response = ollamaClient.chat(chatMessages);
+                // ChatMessage response = llmClient.chat(chatMessages);
+                chain.execute(chatMessages);
+                ChatMessage response = (ChatMessage) chain.getLastOutput();
                 chatMessages.add(response);
                 sqlLiteDao.saveChatMessage(response, chatId);
                 SwingUtilities.invokeLater(() -> renderChatMessage(response));
@@ -199,5 +203,12 @@ public class ChatPanel extends JPanel {
         updateChatSelector();
         chatPane.setText("");
         chatPane.repaint();
+    }
+
+    private NodeChainBuilder initChain(){
+        this.chain = NodeChainBuilder.<List<ChatMessage>, ChatMessage>create();
+        chain = chain.add(new InputNode<List<ChatMessage>, List<ChatMessage>>())
+            .add(new BasicChatAgent(llmClient));            
+        return chain;
     }
 }

@@ -1,6 +1,7 @@
 package com.blakersfield.gameagentsystem.llm.clients;
 
 import java.net.URI;
+import java.net.http.HttpClient;
 import java.util.List;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -14,27 +15,31 @@ import com.blakersfield.gameagentsystem.llm.request.ChatRequest;
 import com.blakersfield.gameagentsystem.llm.request.ChatResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class OllamaClient implements LLMClient{
+public class OpenAiClient implements LLMClient {
     private CloseableHttpClient httpClient;
     private String apiUrl;
-    private ObjectMapper objectMapper = new ObjectMapper();
+    private String apiKeyString;
     private String modelName;
+    private ObjectMapper objectMapper = new ObjectMapper();
 
-    public OllamaClient(CloseableHttpClient httpClient, String apiUrl, String modelName){
+    public OpenAiClient(CloseableHttpClient httpClient, String apiUrl, String modelName, String apiKeyString) {
         this.httpClient = httpClient;
         this.apiUrl = apiUrl;
         this.modelName = modelName;
+        this.apiKeyString = apiKeyString;
     }
 
-    public ChatMessage chat(List<ChatMessage> messages){
+    @Override
+    public ChatMessage chat(List<ChatMessage> messages) {
     ChatRequest request = new ChatRequest();
     request.setMessages(messages);
-    request.setModel(modelName); //TODO fix, enums, etc
+    request.setModel(this.modelName); //TODO fix, enums, etc
     request.setStream(false);
     try{
         HttpPost httpPost = new HttpPost(new URI(apiUrl)); //this will need to be extracted for the different auth etc. 
         httpPost.setHeader("Content-Type","application/json");
         httpPost.setHeader("Accept","*/*");
+        httpPost.setHeader("Authorization", apiKeyString);
         httpPost.setEntity(new StringEntity(objectMapper.writeValueAsString(request)));
         try (CloseableHttpResponse response = httpClient.execute(httpPost)){
             if (response.getStatusLine().getStatusCode()>=200 && response.getStatusLine().getStatusCode()<300){
@@ -45,5 +50,6 @@ public class OllamaClient implements LLMClient{
         e.printStackTrace();
     }
     return null;
-    };
+    }
+    
 }
