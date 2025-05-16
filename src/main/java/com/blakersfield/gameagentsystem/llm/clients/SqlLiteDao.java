@@ -4,6 +4,8 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
@@ -14,21 +16,41 @@ import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 
 public class SqlLiteDao {
     private final Connection connection;
-    private static final String KEY = "s3cr3tKey1234567"; //TODO replace with input value/admin key
     private static final String ALGORITHM = "AES";
+    private static SecretKeySpec currentKeySpec = null;
+    private static boolean encryptionEnabled = false;
 
-    public SqlLiteDao(Connection connection){
+    public SqlLiteDao(Connection connection) {
         this.connection = connection;
     }
 
-    private static SecretKeySpec getKeySpec() {
-        return new SecretKeySpec(KEY.getBytes(), ALGORITHM);
+    public static void setEncryptionKey(String password) {
+        try {
+            // Hash the password using SHA-256
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(password.getBytes());
+            
+            // Use first 16 bytes of hash for AES-128 key
+            byte[] keyBytes = new byte[16];
+            System.arraycopy(hash, 0, keyBytes, 0, 16);
+            
+            currentKeySpec = new SecretKeySpec(keyBytes, ALGORITHM);
+            encryptionEnabled = true;
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Error hashing password", e);
+        }
     }
 
     private String encrypt(String plainText) {
+        if (!encryptionEnabled) {
+            return plainText;
+        }
+        if (currentKeySpec == null) {
+            throw new IllegalStateException("Encryption key not set");
+        }
         try {
             Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, getKeySpec());
+            cipher.init(Cipher.ENCRYPT_MODE, currentKeySpec);
             byte[] encrypted = cipher.doFinal(plainText.getBytes("UTF-8"));
             return Base64.getEncoder().encodeToString(encrypted);
         } catch (Exception e) {
@@ -37,15 +59,41 @@ public class SqlLiteDao {
     }
 
     private String decrypt(String encryptedBase64) {
+        if (!encryptionEnabled) {
+            return encryptedBase64;
+        }
+        if (currentKeySpec == null) {
+            throw new IllegalStateException("Encryption key not set");
+        }
         try {
             Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, getKeySpec());
+            cipher.init(Cipher.DECRYPT_MODE, currentKeySpec);
             byte[] decoded = Base64.getDecoder().decode(encryptedBase64);
             byte[] decrypted = cipher.doFinal(decoded);
             return new String(decrypted, "UTF-8");
         } catch (Exception e) {
             throw new RuntimeException("Error decrypting string", e);
         }
+    }
+
+    public boolean validateEncryptionKey() {
+        String encryptedCheck = this.getConfigSetting(Configuration.ENCRYPTION_CHECK_KEY);
+        if (encryptedCheck == null) {
+            return false;
+        }
+        try {
+            String decrypted = this.decrypt(encryptedCheck);
+            return Configuration.ENCRYPTION_CHECK_TRUTH.equals(decrypted);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void initializeEncryption(String password) {
+        setEncryptionKey(password);
+        // Encrypt and store the validation value
+        String encryptedTruth = encrypt(Configuration.ENCRYPTION_CHECK_TRUTH);
+        saveConfigSetting(Configuration.ENCRYPTION_CHECK_KEY, encryptedTruth);
     }
 
     public void saveChatMessage(ChatMessage chatMessage, String chatId){
@@ -261,45 +309,41 @@ public class SqlLiteDao {
         } catch (Exception e){
         }
     }
-    public String getConfigSetting(String settingKey){
+    public String getConfigSetting(String settingKey) {
         String sql = "select setting_value from config_settings where setting_key = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)){
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, settingKey);
-            try(ResultSet rs = stmt.executeQuery()){
-                if (rs.next()){
-                    return this.decrypt(rs.getString("setting_value"));
+            try(ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    String value = rs.getString("setting_value");
+                    return encryptionEnabled ? this.decrypt(value) : value;
                 }
             }
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace(); // TODO: replace with logger
         }
         return null;
     }
-    public void saveConfigSetting(String settingKey, String settingValue){
-        String encryptedValue = this.encrypt(settingValue);
+    public void saveConfigSetting(String settingKey, String settingValue) {
+        String valueToStore = encryptionEnabled ? this.encrypt(settingValue) : settingValue;
         String sql = "insert into config_settings (setting_key, setting_value) values (?,?)";
-        try (PreparedStatement stmt = this.connection.prepareStatement(sql)){
+        try (PreparedStatement stmt = this.connection.prepareStatement(sql)) {
             stmt.setString(1, settingKey);
-            stmt.setString(2, encryptedValue);
+            stmt.setString(2, valueToStore);
             stmt.executeUpdate();
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    public void updateConfigSetting(String settingKey, String settingValue){
-        String encryptedValue = this.encrypt(settingValue);
+    public void updateConfigSetting(String settingKey, String settingValue) {
+        String valueToStore = encryptionEnabled ? this.encrypt(settingValue) : settingValue;
         String sql = "update config_settings set setting_value=? where setting_key=?";
-        try (PreparedStatement stmt = this.connection.prepareStatement(sql)){
-            stmt.setString(1, encryptedValue);
+        try (PreparedStatement stmt = this.connection.prepareStatement(sql)) {
+            stmt.setString(1, valueToStore);
             stmt.setString(2, settingKey);
             stmt.executeUpdate();
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    public boolean isDecryptionKeyValue(String key){
-        String encryptedCheck = this.getConfigSetting(Configuration.ENCRYPTION_CHECK_KEY);
-        return Configuration.ENCRYPTION_CHECK_TRUTH.equals(this.decrypt(encryptedCheck));
     }
 }

@@ -18,4 +18,7 @@ public class Configuration {
 
     public static String ENCRYPTION_CHECK_KEY = "ENCRYPTION_CHECK_KEY";
     public static String ENCRYPTION_CHECK_TRUTH = "EUREKA";
+
+    public static String LLM_PROVIDER = "LLM_PROVIDER";
+    public static String DEFAULT_LLM_PROVIDER = "Ollama";
 }
