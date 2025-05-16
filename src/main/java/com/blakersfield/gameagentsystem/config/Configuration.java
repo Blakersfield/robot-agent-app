@@ -2,7 +2,7 @@ package com.blakersfield.gameagentsystem.config;
 
 public class Configuration {
     public static String OLLAMA_BASE_URL = "OLLAMA_BASE_URL";
-    public static String DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434";
+    public static String DEFAULT_OLLAMA_BASE_URL = "http://localhost";
 
     public static String OLLAMA_MODEL = "OLLAMA_MODEL";
     public static String DEFAULT_OLLAMA_MODEL = "gemma3";
@@ -21,4 +21,7 @@ public class Configuration {
 
     public static String LLM_PROVIDER = "LLM_PROVIDER";
     public static String DEFAULT_LLM_PROVIDER = "Ollama";
+
+    public static String OLLAMA_PORT = "OLLAMA_PORT";
+    public static String DEFAULT_OLLAMA_PORT = "11434";
 }

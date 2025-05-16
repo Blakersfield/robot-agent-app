@@ -11,6 +11,8 @@ import com.blakersfield.gameagentsystem.llm.clients.OpenAiClient;
 import com.blakersfield.gameagentsystem.llm.clients.SqlLiteDao;
 import com.blakersfield.gameagentsystem.panels.ChatPanel;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -25,6 +27,7 @@ import java.rmi.server.ExportException;
 import java.sql.*;
 
 public class Main {
+    private static final Logger logger = LoggerFactory.getLogger(Main.class);
     private static final String DB_PATH = "app.db";
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final CloseableHttpClient HTTP_CLIENT = HttpClients.createDefault();
@@ -40,7 +43,7 @@ public class Main {
 
     private static void createAndShowGUI() {
         JFrame frame = new JFrame("Chat Agent Client");
-        frame.setSize(1000, 700);
+        frame.setSize(1200, 800);
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {
             @Override
@@ -51,29 +54,34 @@ public class Main {
             }
         });
 
-        initializeDatabase();
-        
-        // Show password dialog before proceeding
-        if (!handlePasswordSetup()) {
-            shutdown();
-            frame.dispose();
+        try {
+            initializeDatabase();
+            
+            // password needs to be checked or set up
+            if (!handlePasswordSetup()) {
+                shutdown();
+                frame.dispose();
+                System.exit(1);
+            }
+
+            initializeLLMClient();
+            
+            JTabbedPane tabs = new JTabbedPane(JTabbedPane.LEFT);
+            tabs.addTab(null, IconProvider.get("chat"), new ChatPanel(HTTP_CLIENT, sqlLiteDao, llmClient), null);
+            tabs.addTab(null, IconProvider.get("ros_llm"), new InterfacePanel(HTTP_CLIENT, sqlLiteDao, llmClient), null);
+            tabs.addTab(null, IconProvider.get("settings"), new SettingsPanel(sqlLiteDao), null);
+            tabs.addTab(null, IconProvider.get("flow"), new FlowPanel(), null);
+            frame.add(tabs);
+            frame.setVisible(true);
+        } catch (Exception e) {
+            logger.error("Failed to initialize application", e);
+            JOptionPane.showMessageDialog(frame, "Failed to initialize application: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             System.exit(1);
         }
-
-        initializeLLMClient();
-        
-        // layout w/tabs 
-        JTabbedPane tabs = new JTabbedPane(JTabbedPane.LEFT);
-        tabs.addTab(null, IconProvider.get("chat"), new ChatPanel(HTTP_CLIENT, sqlLiteDao, llmClient), null);
-        tabs.addTab(null, IconProvider.get("ros_llm"), new InterfacePanel(HTTP_CLIENT, sqlLiteDao, llmClient), null);
-        tabs.addTab(null, IconProvider.get("settings"), new SettingsPanel(sqlLiteDao), null);
-        tabs.addTab(null, IconProvider.get("flow"), new FlowPanel(), null);
-        frame.add(tabs);
-        frame.setVisible(true);
     }
 
     private static boolean handlePasswordSetup() {
-        // Check if this is first run
+        // check if this is first run
         boolean isFirstRun = sqlLiteDao.getConfigSetting(Configuration.ENCRYPTION_CHECK_KEY) == null;
         
         if (isFirstRun) {
@@ -109,18 +117,20 @@ public class Main {
             String confirm = new String(confirmField.getPassword());
             
             if (!password.equals(confirm)) {
+                logger.warn("Initial password setup failed - passwords do not match");
                 JOptionPane.showMessageDialog(dialog, "Passwords do not match!", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             
             if (!isValidPassword(password)) {
+                logger.warn("Initial password setup failed - invalid password format");
                 JOptionPane.showMessageDialog(dialog, "Password must be alphanumeric!", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
             
-            // Initialize encryption and default settings
             sqlLiteDao.initializeEncryption(password);
             initializeDefaultSettings();
+            logger.info("Initial password setup completed successfully");
             result[0] = true;
             dialog.dispose();
         });
@@ -189,13 +199,17 @@ public class Main {
             stmt.execute("CREATE TABLE IF NOT EXISTS lang_chain_nodes (node_id INTEGER PRIMARY KEY AUTOINCREMENT, lang_chain_id INTEGER, next_node_id INTEGER)");
             stmt.execute("CREATE TABLE IF NOT EXISTS agents (agent_id INTEGER PRIMARY KEY AUTOINCREMENT, system_content TEXT)");
             stmt.execute("CREATE TABLE IF NOT EXISTS config_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT)");
+            stmt.execute("CREATE TABLE IF NOT EXISTS game_rules (rule_id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id TEXT, content TEXT)");
+            
+            logger.info("Database initialized successfully");
         } catch (SQLException e) {
-            System.err.println("Database init failed: " + e.getMessage());
+            logger.error("Database initialization failed", e);
+            throw new RuntimeException("Failed to initialize database", e);
         } finally {
             try {
                 if (stmt != null) stmt.close();
             } catch(Exception e) {
-                System.err.println("Error closing statement connection");
+                logger.error("Error closing statement connection", e);
             }
         }
     }
@@ -208,6 +222,7 @@ public class Main {
         initConfigSetting(Configuration.OPENAI_API_SECRET, Configuration.DEFAULT_OPENAI_API_SECRET);
         initConfigSetting(Configuration.OPENAI_MODEL, Configuration.DEFAULT_OPENAI_MODEL);
         initConfigSetting(Configuration.LLM_PROVIDER, Configuration.DEFAULT_LLM_PROVIDER);
+        initConfigSetting(Configuration.OLLAMA_PORT, Configuration.DEFAULT_OLLAMA_PORT);
     }
 
     private static void initConfigSetting(String key, String value) {
@@ -226,7 +241,8 @@ public class Main {
         } else {
             String baseUrl = sqlLiteDao.getConfigSetting(Configuration.OLLAMA_BASE_URL);
             String model = sqlLiteDao.getConfigSetting(Configuration.OLLAMA_MODEL);
-            llmClient = new OllamaClient(HTTP_CLIENT, baseUrl, model);
+            Integer port = Integer.parseInt(sqlLiteDao.getConfigSetting(Configuration.OLLAMA_PORT));
+            llmClient = new OllamaClient(HTTP_CLIENT, baseUrl, port, model);
         }
     }
 
@@ -237,8 +253,9 @@ public class Main {
     private static void shutdown() {
         try {
             HTTP_CLIENT.close();
+            logger.info("Application shutdown completed successfully");
         } catch(Exception e) {
-            //add logging
+            logger.error("Error during application shutdown", e);
         }
     }
 }

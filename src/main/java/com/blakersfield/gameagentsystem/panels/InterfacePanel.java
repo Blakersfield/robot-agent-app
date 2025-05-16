@@ -4,6 +4,8 @@ import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
 import javax.swing.text.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.http.impl.client.CloseableHttpClient;
 
@@ -20,6 +22,7 @@ import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 import java.util.List;
 
 public class InterfacePanel extends ChatPanel {
+    private static final Logger logger = LoggerFactory.getLogger(InterfacePanel.class);
     private NodeChainBuilder chain;
 
     public InterfacePanel(CloseableHttpClient httpClient, SqlLiteDao sqlLiteDao, LLMClient llmClient) {
@@ -39,30 +42,49 @@ public class InterfacePanel extends ChatPanel {
         );
 
         InputTypeInterpreterAgent interpreterAgent = new InputTypeInterpreterAgent(choices, llmClient);
-        
 
         // Build the langchain
-        InputNode inputNode = new InputNode();
-        chain = new NodeChainBuilder<>();
+        chain = NodeChainBuilder.<String, String>create()
+            .add(new InputNode<String, String>())
+            .add(interpreterAgent);
+    }
+
+    @Override
+    protected void initializeToolbar() {
+        super.initializeToolbar();
+        JButton logButton = new JButton("View Logs");
+        logButton.addActionListener(e -> {
+            LogViewerPanel logViewer = new LogViewerPanel((Frame) SwingUtilities.getWindowAncestor(this), "logs/interface-panel.log");
+            logViewer.setVisible(true);
+        });
+        
+        // Get the toolbar panel which is the first component in the NORTH position
+        Component[] components = getComponents();
+        for (Component comp : components) {
+            if (comp instanceof JPanel && ((JPanel) comp).getLayout() instanceof FlowLayout) {
+                ((JPanel) comp).add(logButton);
+                break;
+            }
+        }
     }
 
     @Override
     protected void handleInputSubmission(String userInput) {
         if (userInput.isEmpty()) return;
 
-        // Add user message to chat
         ChatMessage userMsg = new ChatMessage("user", userInput);
         chatMessages.add(userMsg);
         sqlLiteDao.saveChatMessage(userMsg, chatId);
         renderChatMessage(userMsg);
         inputField.setText("");
 
-        // Process input through langchain
         new Thread(() -> {
             try {
                 // this.chain.build().setInput(userInput);
+                logger.debug("InterfacePanel: Processing user input: {}", userInput);
                 chain.execute(userInput);
                 String response = (String) chain.getLastOutput();
+                logger.debug("InterfacePanel: Generated response: {}", response);
                 
                 // Create and display system response
                 ChatMessage systemMsg = new ChatMessage("system", response);
@@ -70,7 +92,7 @@ public class InterfacePanel extends ChatPanel {
                 sqlLiteDao.saveChatMessage(systemMsg, chatId);
                 SwingUtilities.invokeLater(() -> renderChatMessage(systemMsg));
             } catch (Exception ex) {
-                ex.printStackTrace();
+                logger.error("InterfacePanel: Error processing input", ex);
                 SwingUtilities.invokeLater(() -> renderSystemMessage("Error processing input: " + ex.getMessage() + "\n"));
             }
         }).start();

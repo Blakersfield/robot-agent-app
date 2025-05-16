@@ -8,6 +8,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import javax.swing.text.*;
@@ -21,6 +23,7 @@ import com.blakersfield.gameagentsystem.llm.model.node.agent.BasicChatAgent;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 
 public class ChatPanel extends JPanel {
+    private static final Logger logger = LoggerFactory.getLogger(ChatPanel.class);
     protected LLMClient llmClient;
     protected SqlLiteDao sqlLiteDao;
     protected List<ChatMessage> chatMessages = new ArrayList<>();
@@ -74,14 +77,21 @@ public class ChatPanel extends JPanel {
         chatNameField = new JTextField(15);
         updateChatButton = new JButton("Change Chat Name");
         newChatButton = new JButton("New Chat");
+        JButton logButton = new JButton("Logs");
 
         toolPanel.add(chatNameField);
         toolPanel.add(updateChatButton);
         toolPanel.add(newChatButton);
+        toolPanel.add(logButton);
 
         add(toolPanel, BorderLayout.NORTH);
 
         updateChatSelector();
+
+        logButton.addActionListener(e -> {
+            LogViewerPanel logViewer = new LogViewerPanel((Frame) SwingUtilities.getWindowAncestor(this), "logs/chat-panel.log");
+            logViewer.setVisible(true);
+        });
     }
 
     protected void initializeInputArea() {
@@ -121,7 +131,12 @@ public class ChatPanel extends JPanel {
 
         ChatMessage userMsg = new ChatMessage("user", userInput);
         chatMessages.add(userMsg);
-        sqlLiteDao.saveChatMessage(userMsg, chatId);
+        try {
+            sqlLiteDao.saveChatMessage(userMsg, chatId);
+            logger.debug("Saved user message to chat {}", chatId);
+        } catch (Exception e) {
+            logger.error("Failed to save user message", e);
+        }
         renderChatMessage(userMsg);
         inputField.setText("");
 
@@ -131,10 +146,15 @@ public class ChatPanel extends JPanel {
                 chain.execute(chatMessages);
                 ChatMessage response = (ChatMessage) chain.getLastOutput();
                 chatMessages.add(response);
-                sqlLiteDao.saveChatMessage(response, chatId);
+                try {
+                    sqlLiteDao.saveChatMessage(response, chatId);
+                    logger.debug("Saved LLM response to chat {}", chatId);
+                } catch (Exception e) {
+                    logger.error("Failed to save LLM response", e);
+                }
                 SwingUtilities.invokeLater(() -> renderChatMessage(response));
             } catch (Exception ex) {
-                ex.printStackTrace();
+                logger.error("Error processing chat message", ex);
                 SwingUtilities.invokeLater(() -> renderSystemMessage("LLM: (error occurred)\n"));
             }
         }).start();
@@ -170,16 +190,22 @@ public class ChatPanel extends JPanel {
     }
 
     protected void loadAndRenderChatHistory(String chatId) {
-        List<ChatMessage> loadedMessages = sqlLiteDao.getChatMessagesById(chatId);
-        chatPane.setText("");
-        if (loadedMessages != null && !loadedMessages.isEmpty()) {
-            this.chatId = chatId;
-            this.chatMessages = loadedMessages;
-            for (ChatMessage msg : chatMessages) {
-                renderChatMessage(msg);
+        try {
+            List<ChatMessage> loadedMessages = sqlLiteDao.getChatMessagesById(chatId);
+            chatPane.setText("");
+            if (loadedMessages != null && !loadedMessages.isEmpty()) {
+                this.chatId = chatId;
+                this.chatMessages = loadedMessages;
+                logger.info("Loaded chat history for chat {}", chatId);
+                for (ChatMessage msg : chatMessages) {
+                    renderChatMessage(msg);
+                }
             }
+            chatPane.repaint();
+        } catch (Exception e) {
+            logger.error("Failed to load chat history for chat {}", chatId, e);
+            renderSystemMessage("Error loading chat history\n");
         }
-        chatPane.repaint();
     }
 
     protected void updateChatSelector() {
@@ -199,6 +225,7 @@ public class ChatPanel extends JPanel {
     protected void startNewChat() {
         this.chatMessages = new ArrayList<>();
         this.chatId = UUID.randomUUID().toString();
+        logger.info("Started new chat with ID: {}", chatId);
         chatSelector.setSelectedItem(this.chatId);
         updateChatSelector();
         chatPane.setText("");

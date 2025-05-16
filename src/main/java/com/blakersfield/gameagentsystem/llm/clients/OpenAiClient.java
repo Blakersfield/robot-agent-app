@@ -36,10 +36,10 @@ public class OpenAiClient implements LLMClient {
     request.setModel(this.modelName); //TODO fix, enums, etc
     request.setStream(false);
     try{
-        HttpPost httpPost = new HttpPost(new URI(apiUrl)); //this will need to be extracted for the different auth etc. 
+        HttpPost httpPost = new HttpPost(new URI(apiUrl)); 
         httpPost.setHeader("Content-Type","application/json");
         httpPost.setHeader("Accept","*/*");
-        httpPost.setHeader("Authorization", apiKeyString);
+        httpPost.setHeader("Authorization", "Bearer " + apiKeyString);
         httpPost.setEntity(new StringEntity(objectMapper.writeValueAsString(request)));
         try (CloseableHttpResponse response = httpClient.execute(httpPost)){
             if (response.getStatusLine().getStatusCode()>=200 && response.getStatusLine().getStatusCode()<300){
