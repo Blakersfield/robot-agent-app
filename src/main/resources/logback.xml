@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Common pattern for all logs -->
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+
+    <!-- Main application log -->
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>logs/game-agent-system.log</file>
+        <append>true</append>
+        <prudent>true</prudent>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Chat panel log -->
+    <appender name="CHAT_FILE" class="ch.qos.logback.core.FileAppender">
+        <file>logs/chat-panel.log</file>
+        <append>true</append>
+        <prudent>true</prudent>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Interface panel log -->
+    <appender name="INTERFACE_FILE" class="ch.qos.logback.core.FileAppender">
+        <file>logs/interface-panel.log</file>
+        <append>true</append>
+        <prudent>true</prudent>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Console appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Chat panel logger -->
+    <logger name="com.blakersfield.gameagentsystem.panels.ChatPanel" level="DEBUG" additivity="false">
+        <appender-ref ref="CHAT_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <!-- Interface panel logger -->
+    <logger name="com.blakersfield.gameagentsystem.panels.InterfacePanel" level="DEBUG" additivity="false">
+        <appender-ref ref="INTERFACE_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <!-- Root logger -->
+    <root level="INFO">
+        <appender-ref ref="FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration> 

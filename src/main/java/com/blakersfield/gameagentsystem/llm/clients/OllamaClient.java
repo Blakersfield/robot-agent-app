@@ -20,9 +20,13 @@ public class OllamaClient implements LLMClient{
     private ObjectMapper objectMapper = new ObjectMapper();
     private String modelName;
 
-    public OllamaClient(CloseableHttpClient httpClient, String apiUrl, String modelName){
+    public OllamaClient(CloseableHttpClient httpClient, String baseUrl, Integer port, String modelName){
+        if (port == null || port == 0){
+            this.apiUrl = baseUrl + "/api/chat";
+        } else {
+            this.apiUrl = baseUrl + ":" + port + "/api/chat";
+        }
         this.httpClient = httpClient;
-        this.apiUrl = apiUrl;
         this.modelName = modelName;
     }
 

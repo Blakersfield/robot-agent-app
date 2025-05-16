@@ -13,12 +13,42 @@ import javax.crypto.spec.SecretKeySpec;
 import com.blakersfield.gameagentsystem.config.Configuration;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.data.Rule;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SqlLiteDao {
+    private static final Logger logger = LoggerFactory.getLogger(SqlLiteDao.class);
     private final Connection connection;
     private static final String ALGORITHM = "AES";
     private static SecretKeySpec currentKeySpec = null;
     private static boolean encryptionEnabled = false;
+
+    private static final String URL_PATTERN = "^(https?://)(localhost|\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,})(:\\d+)?(/[\\w-./?%&=]*)?$";
+    private static final String PORT_PATTERN = "^\\d{1,5}$";
+
+    private boolean isValidUrl(String url) {
+        return url != null && url.matches(URL_PATTERN);
+    }
+
+    private boolean isValidPort(String port) {
+        if (port == null || !port.matches(PORT_PATTERN)) {
+            return false;
+        }
+        int portNum = Integer.parseInt(port);
+        return portNum > 0 && portNum < 65536;
+    }
+
+    private void validateSetting(String key, String value) {
+        if (key.equals(Configuration.OLLAMA_BASE_URL)) {
+            if (!isValidUrl(value)) {
+                throw new IllegalArgumentException("Invalid Ollama base URL format");
+            }
+        } else if (key.equals(Configuration.OLLAMA_PORT)) {
+            if (!isValidPort(value)) {
+                throw new IllegalArgumentException("Invalid Ollama port number");
+            }
+        }
+    }
 
     public SqlLiteDao(Connection connection) {
         this.connection = connection;
@@ -104,7 +134,7 @@ public class SqlLiteDao {
             stmt.setString(3, chatMessage.getContent());
             stmt.executeUpdate();
         } catch (SQLException e){
-            e.printStackTrace(); // TODO: replace with logger
+            logger.error("SqlLiteDao: Error saving chat message", e);
         }
     }
 
@@ -121,7 +151,7 @@ public class SqlLiteDao {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace(); // TODO: replace with logger
+            logger.error("SqlLiteDao: Error getting chat messages", e);
         }
         return messages;
     }
@@ -137,7 +167,7 @@ public class SqlLiteDao {
             }
             stmt.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace(); // TODO: replace with logger
+            logger.error("SqlLiteDao: Error saving lang chain node", e);
         }
     }
 
@@ -196,7 +226,7 @@ public class SqlLiteDao {
             stmt.setString(1, systemContent);
             stmt.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace(); // TODO: replace with logger
+            logger.error("SqlLiteDao: Error saving agent", e);
         }
     }
 
@@ -210,7 +240,7 @@ public class SqlLiteDao {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace(); // TODO: replace with logger
+            logger.error("SqlLiteDao: Error getting agent by id", e);
         }
         return null;
     }
@@ -223,7 +253,7 @@ public class SqlLiteDao {
                 result.add(rs.getString(1));
             }
         } catch (Exception e){
-            e.printStackTrace(); // TODO: replace with logger
+            logger.error("SqlLiteDao: Error getting chat ids", e);
         }
         return result;
     }
@@ -235,7 +265,7 @@ public class SqlLiteDao {
             stmt.setString(2,rule.getContent());
             stmt.executeUpdate();
         } catch (Exception e){
-            e.printStackTrace(); // TODO: replace with logger
+            logger.error("SqlLiteDao: Error saving rule", e);
         }
     }
 
@@ -247,7 +277,7 @@ public class SqlLiteDao {
             stmt.setString(3,rule.getChatId());
             stmt.executeUpdate();
         } catch (Exception e){
-            e.printStackTrace(); // TODO: replace with logger
+            logger.error("SqlLiteDao: Error updating rule", e);
         }
     }
 
@@ -259,7 +289,7 @@ public class SqlLiteDao {
             stmt.setString(3,oldRule.getChatId());
             stmt.executeUpdate();
         } catch (Exception e){
-            e.printStackTrace(); // TODO: replace with logger
+            logger.error("SqlLiteDao: Error updating rule", e);
         }
     }
     public List<Rule> getAllRules(){
@@ -276,7 +306,7 @@ public class SqlLiteDao {
                 result.add(rule);
             }
         } catch (Exception e){
-            e.printStackTrace(); // TODO: replace with logger
+            logger.error("SqlLiteDao: Error getting all rules", e);
         }
         return result;
     }
@@ -295,7 +325,7 @@ public class SqlLiteDao {
                 result.add(rule);
             }
         } catch (Exception e){
-            e.printStackTrace(); // TODO: replace with logger
+            logger.error("SqlLiteDao: Error getting rules for chat id", e);
         }
         return result;
     }
@@ -307,6 +337,7 @@ public class SqlLiteDao {
             stmt.setString(2, oldId);
             stmt.executeUpdate();
         } catch (Exception e){
+            logger.error("SqlLiteDao: Error updating chat id", e);
         }
     }
     public String getConfigSetting(String settingKey) {
@@ -320,11 +351,12 @@ public class SqlLiteDao {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace(); // TODO: replace with logger
+            logger.error("SqlLiteDao: Error getting config setting", e);
         }
         return null;
     }
     public void saveConfigSetting(String settingKey, String settingValue) {
+        validateSetting(settingKey, settingValue);
         String valueToStore = encryptionEnabled ? this.encrypt(settingValue) : settingValue;
         String sql = "insert into config_settings (setting_key, setting_value) values (?,?)";
         try (PreparedStatement stmt = this.connection.prepareStatement(sql)) {
@@ -332,10 +364,11 @@ public class SqlLiteDao {
             stmt.setString(2, valueToStore);
             stmt.executeUpdate();
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("SqlLiteDao: Error saving config setting", e);
         }
     }
     public void updateConfigSetting(String settingKey, String settingValue) {
+        validateSetting(settingKey, settingValue);
         String valueToStore = encryptionEnabled ? this.encrypt(settingValue) : settingValue;
         String sql = "update config_settings set setting_value=? where setting_key=?";
         try (PreparedStatement stmt = this.connection.prepareStatement(sql)) {
@@ -343,7 +376,7 @@ public class SqlLiteDao {
             stmt.setString(2, settingKey);
             stmt.executeUpdate();
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("SqlLiteDao: Error updating config setting", e);
         }
     }
 }
