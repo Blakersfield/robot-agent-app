@@ -9,6 +9,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
 import com.blakersfield.gameagentsystem.config.Configuration;
+import com.blakersfield.gameagentsystem.llm.model.node.agent.data.Rule;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 
 public class SqlLiteDao {
@@ -178,6 +179,79 @@ public class SqlLiteDao {
         }
         return result;
     }
+
+    public void saveRule(Rule rule){
+        String sql = "insert into game_rules(chat_id, content) values (?,?)";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)){
+            stmt.setString(1,rule.getChatId());
+            stmt.setString(2,rule.getContent());
+            stmt.executeUpdate();
+        } catch (Exception e){
+            e.printStackTrace(); // TODO: replace with logger
+        }
+    }
+
+    public void updateRule(Rule rule){
+        String sql = "update game_rules set content= ? where rule_id = ? and chat_id =?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)){
+            stmt.setString(1,rule.getContent());
+            stmt.setLong(2,rule.getRuleId());
+            stmt.setString(3,rule.getChatId());
+            stmt.executeUpdate();
+        } catch (Exception e){
+            e.printStackTrace(); // TODO: replace with logger
+        }
+    }
+
+    public void updateRule(Rule oldRule, Rule newRule){
+        String sql = "update game_rules set content= ? where rule_id = ? and chat_id =?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)){
+            stmt.setString(1,newRule.getContent());
+            stmt.setLong(2,oldRule.getRuleId());
+            stmt.setString(3,oldRule.getChatId());
+            stmt.executeUpdate();
+        } catch (Exception e){
+            e.printStackTrace(); // TODO: replace with logger
+        }
+    }
+    public List<Rule> getAllRules(){
+        String sql = "select rule_id, chat_id, content from game_rules";
+        List<Rule> result = new ArrayList<Rule>();
+        try (PreparedStatement stmt = connection.prepareStatement(sql);
+            ResultSet rs = stmt.executeQuery()){
+            while (rs.next()){
+                Rule rule = new Rule(
+                    rs.getLong(1),
+                    rs.getString(2),
+                    rs.getString(3)
+                );
+                result.add(rule);
+            }
+        } catch (Exception e){
+            e.printStackTrace(); // TODO: replace with logger
+        }
+        return result;
+    }
+
+    public List<Rule> getAllRules(String chatId){
+        String sql = "select rule_id, chat_id, content from game_rules where chat_id = ?";
+        List<Rule> result = new ArrayList<Rule>();
+        try (PreparedStatement stmt = connection.prepareStatement(sql);
+            ResultSet rs = stmt.executeQuery()){
+            while (rs.next()){
+                Rule rule = new Rule(
+                    rs.getLong(1),
+                    rs.getString(2),
+                    rs.getString(3)
+                );
+                result.add(rule);
+            }
+        } catch (Exception e){
+            e.printStackTrace(); // TODO: replace with logger
+        }
+        return result;
+    }
+
     public void updateChatId(String oldId, String newId){
         String sql = "update chat_messages set chat_id = ? where chat_id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)){
