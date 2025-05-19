@@ -16,6 +16,8 @@ public class InputTypeInterpreterAgent extends Agent<String, String> {
     private Agent<String, ?> chosenNextAgent;
 
     public InputTypeInterpreterAgent(List<Choice> choices, LLMClient llmClient) {
+        //TODO add default agent which is selected after failure
+        //if default agent is null use the forst
         this.choices = choices;
         this.llmClient = llmClient;
     }
@@ -41,16 +43,13 @@ public class InputTypeInterpreterAgent extends Agent<String, String> {
             throw new IllegalStateException("LLM selected unknown option: " + selectedKey);
         }
 
-        this.chosenNextAgent = selected.get().agent();
-        this.chosenNextAgent.setInput(input);
-        this.output = selectedKey;
+        this.next = selected.get().agent();
         logger.debug("Selected agent for type: {}", selectedKey);
+
+        this.output = this.input;
+        this.propagateOutput();
     }
 
-    @Override
-    public Agent<String, ?> next() {
-        return chosenNextAgent;
-    }
 
     private ChatMessage createPrompt() {
         StringBuilder sb = new StringBuilder();
@@ -62,12 +61,8 @@ public class InputTypeInterpreterAgent extends Agent<String, String> {
 
         sb.append("""
         
-            Respond with ONLY the key of the best choice (e.g., "RULE", "QUESTION", "ACTION"). Do not explain.
+            Respond with ONLY the key of the best choice. Do not explain.
 
-            Example:
-
-            User: "What are the rules again?"
-            Response: "QUESTION"
         """);
 
         return ChatMessage.system(sb.toString());

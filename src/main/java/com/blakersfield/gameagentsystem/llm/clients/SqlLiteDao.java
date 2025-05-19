@@ -26,6 +26,14 @@ public class SqlLiteDao {
     private static final String URL_PATTERN = "^(https?://)(localhost|\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,})(:\\d+)?(/[\\w-./?%&=]*)?$";
     private static final String PORT_PATTERN = "^\\d{1,5}$";
 
+    private String currentChatId;
+    public String getCurrentChatId(){
+        return this.currentChatId;
+    }
+    public void setCurrentChatId(String chatId){
+        this.currentChatId = chatId;
+    }
+
     private boolean isValidUrl(String url) {
         return url != null && url.matches(URL_PATTERN);
     }
@@ -292,7 +300,7 @@ public class SqlLiteDao {
             logger.error("SqlLiteDao: Error updating rule", e);
         }
     }
-    public List<Rule> getAllRules(){
+    public List<Rule> getAllRulesAllChats(){
         String sql = "select rule_id, chat_id, content from game_rules";
         List<Rule> result = new ArrayList<Rule>();
         try (PreparedStatement stmt = connection.prepareStatement(sql);
@@ -309,6 +317,10 @@ public class SqlLiteDao {
             logger.error("SqlLiteDao: Error getting all rules", e);
         }
         return result;
+    }
+
+    public List<Rule> getAllRules(){
+        this.getAllRules(this.currentChatId);
     }
 
     public List<Rule> getAllRules(String chatId){

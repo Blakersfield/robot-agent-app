@@ -6,25 +6,22 @@ import org.slf4j.LoggerFactory;
 
 import com.blakersfield.gameagentsystem.llm.clients.LLMClient;
 import com.blakersfield.gameagentsystem.llm.clients.SqlLiteDao;
-import com.blakersfield.gameagentsystem.llm.model.node.Node;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.data.Rule;
-import com.blakersfield.gameagentsystem.llm.model.node.agent.data.RuleComparisonResult;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class RuleExtractionAgent extends Agent<String, String> {
     private static final Logger logger = LoggerFactory.getLogger(RuleExtractionAgent.class);
-    private static final int MAX_RETRIES = 3;
     
     private final LLMClient llmClient;
     private final SqlLiteDao sqliteDao;
     private final String extractionPrompt;
-    private final String comparisonPrompt;
-    private final String refinementPrompt;
     private final ObjectMapper objectMapper;
-    private Agent<?, ?> nextAgent;
 
     public RuleExtractionAgent(LLMClient llmClient, SqlLiteDao sqliteDao) {
         this.llmClient = Objects.requireNonNull(llmClient, "OllamaClient cannot be null");
@@ -36,92 +33,97 @@ public class RuleExtractionAgent extends Agent<String, String> {
             You are a rule extraction agent. Extract game rules from the user's input and format them as a JSON object. 
             The JSON should contain clear, structured rules that can be used by the game system.
             Format the response as a JSON object with the following structure:
-            {
-                "rules": [
-                    {
-                        "content": "rule description",
-                        "type": "rule type",
-                        "conditions": ["condition1", "condition2"]
-                    }
-                ]
-            }
+            "rules": [
+                "this is the first rule",
+                "this is the second rule"
+            ]
             """;
-
-        this.comparisonPrompt = """
-            Compare the new rules against the existing rule set.
-            Return a JSON object with fields:
-            {
-              "newRules": [...],
-              "duplicateRules": [...],
-              "modifiedRules": [{"original": ..., "modified": ...}]
-            }
-        """;
-
-        this.refinementPrompt = """
-            For each modified rule, decide what the correct version should be.
-            Return a list of updated rules to replace the originals.
-        """;
     }
 
     @Override
     public void act() {
+        try{
+        List<String> extractedRules = extractRules(input);
+        List<Rule> existingRules = sqliteDao.getAllRules();
+        List<Rule> ruleUpdates = extractedRules.parallelStream()
+            .flatMap(newRule -> deconflictRules(newRule, existingRules).stream())
+            .toList();
+        ruleUpdates.stream().forEach(rule -> {
+            rule.setChatId(sqliteDao.getCurrentChatId());
+            sqliteDao.updateRule(rule);
+        });
+        } catch (Exception e){
+            logger.error("Problem extracting rules!");
+        }
+        this.output = this.input;
+        this.propagateOutput();
+    }
+
+    private List<String> extractRules(String inputText) throws JsonMappingException, JsonProcessingException{
         List<ChatMessage> prompt = List.of(
             ChatMessage.system(extractionPrompt),
             ChatMessage.user(input)
         );
-
         ChatMessage response = llmClient.chat(prompt);
-        this.output = response.getContent();
+        String responseString = response.getContent();
+        return objectMapper.readValue(responseString, new TypeReference<List<String>>() {});
     }
 
-    @Override
-    public Node next() {
-        return null; // This is the end of the chain
-    }
-
-    public void setNextAgent(Agent<?, ?> nextAgent) {
-        this.nextAgent = nextAgent;
-    }
-
-    private List<Rule> parseRuleListFromJson(String json) {
-        try {
-            return objectMapper.readValue(json, new TypeReference<List<Rule>>() {});
-        } catch (Exception e) {
-            logger.error("Failed to parse rule list from JSON: {}", json, e);
-            return null;
+    public List<Rule> deconflictRules(String newRule, List<Rule> existingRules) {
+        if (existingRules==null || existingRules.isEmpty() || newRule ==null || newRule.isEmpty()){
+            return Collections.emptyList();
         }
-    }
-
-    private RuleComparisonResult parseComparisonResult(String json) {
         try {
-            return objectMapper.readValue(json, RuleComparisonResult.class);
-        } catch (Exception e) {
-            logger.error("Failed to parse comparison result from JSON: {}", json, e);
-            return new RuleComparisonResult();
-        }
-    }
+            StringBuilder existingRulesStr = new StringBuilder();
+            for (Rule rule : existingRules) {
+                existingRulesStr.append(String.format("- ruleId: %d\n  content: \"%s\"\n",
+                    rule.getRuleId(), rule.getContent()));
+            }
 
-    private Rule parseRuleFromJson(String json) {
-        try {
-            return objectMapper.readValue(json, Rule.class);
-        } catch (Exception e) {
-            logger.error("Failed to parse rule from JSON: {}", json, e);
-            return null;
-        }
-    }
+            String systemPrompt = """
+                You are a rule consistency checker. A new game rule is being considered. Compare it against the list of existing rules.
 
-    private String toJson(Object obj) {
-        try {
-            return objectMapper.writeValueAsString(obj);
-        } catch (Exception e) {
-            logger.error("Failed to convert object to JSON", e);
-            return "{}";
-        }
-    }
+                A rule may conflict in two ways:
+                1. It overlaps in meaning or purpose with an existing rule.
+                2. It contradicts an existing rule in logic or outcome.
 
-    @Override
-    public void reset() {
-        this.input=null;
-        this.output=null;
+                For each conflict, revise the existing rule's content to integrate or resolve the conflict with the new rule.
+                Return ONLY a JSON array of revised rule objects with fields:
+                - "ruleId": (number)
+                - "content": (string with the updated rule text)
+
+                If there are no conflicts, return an empty JSON list: []
+            """;
+
+            String userPrompt = String.format("""
+                New rule:
+                "%s"
+
+                Existing rules:
+                %s
+            """, newRule, existingRulesStr);
+
+            List<ChatMessage> prompt = List.of(
+                ChatMessage.system(systemPrompt),
+                ChatMessage.user(userPrompt)
+            );
+
+            ChatMessage response = llmClient.chat(prompt);
+            String responseContent = response.getContent().trim();
+
+            if (responseContent.startsWith("{")) {
+                // LLM occasionally wraps array in an object — try to extract array if needed
+                JsonNode json = objectMapper.readTree(responseContent);
+                if (json.has("rules")) {
+                    responseContent = json.get("rules").toString();
+                }
+            }
+
+            return objectMapper.readValue(
+                responseContent, new TypeReference<List<Rule>>() {});
+        } catch (Exception e) {
+            logger.error("Error during rule deconfliction", e);
+            return Collections.emptyList();
+        }
     }
 }

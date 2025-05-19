@@ -31,7 +31,6 @@ public class Main {
     private static final String DB_PATH = "app.db";
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final CloseableHttpClient HTTP_CLIENT = HttpClients.createDefault();
-    private static final String OLLAMA_LOCAL_URL = "http://127.0.0.1:11434/api/chat";
     private static Connection connection;
     private static SqlLiteDao sqlLiteDao;
     private static LLMClient llmClient;

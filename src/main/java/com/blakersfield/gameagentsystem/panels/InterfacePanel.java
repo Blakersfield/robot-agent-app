@@ -37,8 +37,8 @@ public class InterfacePanel extends ChatPanel {
 
         // Create choices for input type interpreter
         List<Choice> choices = List.of(
-            new Choice("action", "Process a game action", gameActionAgent),
-            new Choice("rule", "Extract game rules", ruleExtractionAgent)
+            new Choice("ACTION", "Choose this if there is no rule to be extracted", gameActionAgent),
+            new Choice("RULE", "Choose this option if if there is a rule to be extracted", ruleExtractionAgent)
         );
 
         InputTypeInterpreterAgent interpreterAgent = new InputTypeInterpreterAgent(choices, llmClient);
