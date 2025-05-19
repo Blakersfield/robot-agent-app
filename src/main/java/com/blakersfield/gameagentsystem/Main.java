@@ -199,6 +199,7 @@ public class Main {
             stmt.execute("CREATE TABLE IF NOT EXISTS agents (agent_id INTEGER PRIMARY KEY AUTOINCREMENT, system_content TEXT)");
             stmt.execute("CREATE TABLE IF NOT EXISTS config_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT)");
             stmt.execute("CREATE TABLE IF NOT EXISTS game_rules (rule_id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id TEXT, content TEXT)");
+            stmt.execute("CREATE TABLE IF NOT EXISTS game_prompt (prompt_id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT)");
             
             logger.info("Database initialized successfully");
         } catch (SQLException e) {

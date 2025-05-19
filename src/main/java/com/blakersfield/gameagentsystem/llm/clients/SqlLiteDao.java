@@ -320,7 +320,7 @@ public class SqlLiteDao {
     }
 
     public List<Rule> getAllRules(){
-        this.getAllRules(this.currentChatId);
+        return this.getAllRules(this.currentChatId);
     }
 
     public List<Rule> getAllRules(String chatId){
@@ -390,5 +390,28 @@ public class SqlLiteDao {
         } catch (Exception e) {
             logger.error("SqlLiteDao: Error updating config setting", e);
         }
+    }
+
+    public void saveGamePrompt(String prompt) {
+        String sql = "INSERT INTO game_prompt(content) VALUES (?)";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, prompt);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("SqlLiteDao: Error saving game prompt", e);
+        }
+    }
+
+    public String getGamePrompt() {
+        String sql = "SELECT content FROM game_prompt ORDER BY prompt_id DESC LIMIT 1";
+        try (PreparedStatement stmt = connection.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            if (rs.next()) {
+                return rs.getString("content");
+            }
+        } catch (SQLException e) {
+            logger.error("SqlLiteDao: Error getting game prompt", e);
+        }
+        return null;
     }
 }

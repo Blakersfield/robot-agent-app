@@ -39,6 +39,24 @@ public class SettingsPanel extends JPanel{
         settingsFields.add(llmSelect);
         settingsFields.add(Box.createVerticalStrut(10));
 
+        // game prompt section
+        JPanel gamePromptPanel = new JPanel(new BorderLayout());
+        gamePromptPanel.setBorder(BorderFactory.createTitledBorder("Game Prompt"));
+        JTextArea gamePromptArea = new JTextArea(5, 40);
+        gamePromptArea.setLineWrap(true);
+        gamePromptArea.setWrapStyleWord(true);
+        gamePromptArea.setText(sqlLiteDao.getGamePrompt());
+        JScrollPane gamePromptScroll = new JScrollPane(gamePromptArea);
+        JButton saveGamePromptButton = new JButton("Save Game Prompt");
+        saveGamePromptButton.addActionListener(e -> {
+            sqlLiteDao.saveGamePrompt(gamePromptArea.getText());
+            JOptionPane.showMessageDialog(this, "Game prompt saved successfully!");
+        });
+        gamePromptPanel.add(gamePromptScroll, BorderLayout.CENTER);
+        gamePromptPanel.add(saveGamePromptButton, BorderLayout.SOUTH);
+        settingsFields.add(gamePromptPanel);
+        settingsFields.add(Box.createVerticalStrut(10));
+
         JPanel ollamaFields = new JPanel(new GridLayout(0, 2));
         JTextField ollamaUrl = new JTextField(sqlLiteDao.getConfigSetting(Configuration.OLLAMA_BASE_URL));
         JComboBox<String> ollamaModel = new JComboBox<>(new String[] {

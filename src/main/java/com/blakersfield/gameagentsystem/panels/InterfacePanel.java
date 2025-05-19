@@ -13,8 +13,9 @@ import com.blakersfield.gameagentsystem.llm.clients.LLMClient;
 import com.blakersfield.gameagentsystem.llm.clients.SqlLiteDao;
 import com.blakersfield.gameagentsystem.llm.model.node.InputNode;
 import com.blakersfield.gameagentsystem.llm.model.node.NodeChainBuilder;
-import com.blakersfield.gameagentsystem.llm.model.node.agent.GameActionAgent;
+import com.blakersfield.gameagentsystem.llm.model.node.agent.GameAgent;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.InputTypeInterpreterAgent;
+import com.blakersfield.gameagentsystem.llm.model.node.agent.RagAgent;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.RuleExtractionAgent;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.data.Choice;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
@@ -31,22 +32,23 @@ public class InterfacePanel extends ChatPanel {
     }
 
     private void initializeLangChain() {
-        // Create agents
-        GameActionAgent gameActionAgent = new GameActionAgent(llmClient);
+        GameAgent gameAgent = new GameAgent(llmClient, sqlLiteDao);
+        RagAgent ragAgent = new RagAgent(llmClient, sqlLiteDao);
         RuleExtractionAgent ruleExtractionAgent = new RuleExtractionAgent(llmClient, sqlLiteDao);
 
-        // Create choices for input type interpreter
         List<Choice> choices = List.of(
-            new Choice("ACTION", "Choose this if there is no rule to be extracted", gameActionAgent),
-            new Choice("RULE", "Choose this option if if there is a rule to be extracted", ruleExtractionAgent)
+            new Choice("ACTION", "Choose this if there is no rule to be extracted", ragAgent),
+            new Choice("RULE", "Choose this option if there is a rule to be extracted", ruleExtractionAgent)
         );
 
         InputTypeInterpreterAgent interpreterAgent = new InputTypeInterpreterAgent(choices, llmClient);
 
-        // Build the langchain
         chain = NodeChainBuilder.<String, String>create()
             .add(new InputNode<String, String>())
             .add(interpreterAgent);
+        
+        ruleExtractionAgent.setNext(ragAgent);
+        ragAgent.setNext(gameAgent);
     }
 
     @Override
@@ -74,13 +76,12 @@ public class InterfacePanel extends ChatPanel {
 
         ChatMessage userMsg = new ChatMessage("user", userInput);
         chatMessages.add(userMsg);
-        sqlLiteDao.saveChatMessage(userMsg, chatId);
+        sqlLiteDao.saveChatMessage(userMsg, sqlLiteDao.getCurrentChatId());
         renderChatMessage(userMsg);
         inputField.setText("");
 
         new Thread(() -> {
             try {
-                // this.chain.build().setInput(userInput);
                 logger.debug("InterfacePanel: Processing user input: {}", userInput);
                 chain.execute(userInput);
                 String response = (String) chain.getLastOutput();
@@ -89,12 +90,41 @@ public class InterfacePanel extends ChatPanel {
                 // Create and display system response
                 ChatMessage systemMsg = new ChatMessage("system", response);
                 chatMessages.add(systemMsg);
-                sqlLiteDao.saveChatMessage(systemMsg, chatId);
+                sqlLiteDao.saveChatMessage(systemMsg, sqlLiteDao.getCurrentChatId());
                 SwingUtilities.invokeLater(() -> renderChatMessage(systemMsg));
             } catch (Exception ex) {
                 logger.error("InterfacePanel: Error processing input", ex);
                 SwingUtilities.invokeLater(() -> renderSystemMessage("Error processing input: " + ex.getMessage() + "\n"));
             }
         }).start();
+    }
+
+    @Override
+    protected void startNewChat() {
+        super.startNewChat();
+        logger.debug("InterfacePanel: Starting new chat");
+        String gamePrompt = sqlLiteDao.getGamePrompt();
+        if (gamePrompt != null && !gamePrompt.trim().isEmpty()) {
+            ChatMessage systemMsg = new ChatMessage("system", gamePrompt);
+            chatMessages.add(systemMsg);
+            sqlLiteDao.saveChatMessage(systemMsg, sqlLiteDao.getCurrentChatId());
+            renderChatMessage(systemMsg);
+        }
+    }
+
+    @Override
+    protected void loadAndRenderChatHistory(String chatId) {
+        super.loadAndRenderChatHistory(chatId);
+        
+        // If this is a new chat (empty), add the game prompt
+        if (chatMessages.isEmpty()) {
+            String gamePrompt = sqlLiteDao.getGamePrompt();
+            if (gamePrompt != null && !gamePrompt.trim().isEmpty()) {
+                ChatMessage systemMsg = new ChatMessage("system", gamePrompt);
+                chatMessages.add(systemMsg);
+                sqlLiteDao.saveChatMessage(systemMsg, chatId);
+                renderChatMessage(systemMsg);
+            }
+        }
     }
 }
