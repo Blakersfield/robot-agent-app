@@ -45,10 +45,9 @@ public class InterfacePanel extends ChatPanel {
 
         chain = NodeChainBuilder.<String, String>create()
             .add(new InputNode<String, String>())
-            .add(interpreterAgent);
-        
-        ruleExtractionAgent.setNext(ragAgent);
-        ragAgent.setNext(gameAgent);
+            .add(interpreterAgent)
+            .connect(ruleExtractionAgent, ragAgent)
+            .connect(ragAgent, gameAgent);
     }
 
     @Override
@@ -74,7 +73,11 @@ public class InterfacePanel extends ChatPanel {
     protected void handleInputSubmission(String userInput) {
         if (userInput.isEmpty()) return;
 
-        ChatMessage userMsg = new ChatMessage("user", userInput);
+        String finalInput = chatMessages.size() == 0 && sqlLiteDao.getGamePrompt() != null && !sqlLiteDao.getGamePrompt().trim().isEmpty()
+            ? sqlLiteDao.getGamePrompt() + "\n\n" + userInput
+            : userInput;
+
+        ChatMessage userMsg = new ChatMessage("user", finalInput);
         chatMessages.add(userMsg);
         sqlLiteDao.saveChatMessage(userMsg, sqlLiteDao.getCurrentChatId());
         renderChatMessage(userMsg);
@@ -82,8 +85,8 @@ public class InterfacePanel extends ChatPanel {
 
         new Thread(() -> {
             try {
-                logger.debug("InterfacePanel: Processing user input: {}", userInput);
-                chain.execute(userInput);
+                logger.debug("InterfacePanel: Processing user input: {}", finalInput);
+                chain.execute(finalInput);
                 String response = (String) chain.getLastOutput();
                 logger.debug("InterfacePanel: Generated response: {}", response);
                 
@@ -97,34 +100,5 @@ public class InterfacePanel extends ChatPanel {
                 SwingUtilities.invokeLater(() -> renderSystemMessage("Error processing input: " + ex.getMessage() + "\n"));
             }
         }).start();
-    }
-
-    @Override
-    protected void startNewChat() {
-        super.startNewChat();
-        logger.debug("InterfacePanel: Starting new chat");
-        String gamePrompt = sqlLiteDao.getGamePrompt();
-        if (gamePrompt != null && !gamePrompt.trim().isEmpty()) {
-            ChatMessage systemMsg = new ChatMessage("system", gamePrompt);
-            chatMessages.add(systemMsg);
-            sqlLiteDao.saveChatMessage(systemMsg, sqlLiteDao.getCurrentChatId());
-            renderChatMessage(systemMsg);
-        }
-    }
-
-    @Override
-    protected void loadAndRenderChatHistory(String chatId) {
-        super.loadAndRenderChatHistory(chatId);
-        
-        // If this is a new chat (empty), add the game prompt
-        if (chatMessages.isEmpty()) {
-            String gamePrompt = sqlLiteDao.getGamePrompt();
-            if (gamePrompt != null && !gamePrompt.trim().isEmpty()) {
-                ChatMessage systemMsg = new ChatMessage("system", gamePrompt);
-                chatMessages.add(systemMsg);
-                sqlLiteDao.saveChatMessage(systemMsg, chatId);
-                renderChatMessage(systemMsg);
-            }
-        }
     }
 }
