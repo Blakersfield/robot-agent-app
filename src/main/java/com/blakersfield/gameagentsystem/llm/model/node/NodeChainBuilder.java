@@ -1,7 +1,14 @@
 package com.blakersfield.gameagentsystem.llm.model.node;
+
+import java.util.ArrayList;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class NodeChainBuilder<I, O> {
+    private static final Logger logger = LoggerFactory.getLogger(NodeChainBuilder.class);
     private Node<I, ?> firstNode;
-    private Node<?, O> lastNode;
+    private List<Node<?, O>> lastNodes = new ArrayList<>();
     private O lastOutput;
 
     public static <I, O> NodeChainBuilder<I, O> create() {
@@ -12,23 +19,30 @@ public class NodeChainBuilder<I, O> {
     public <T> NodeChainBuilder<I, T> add(Node<O, T> node) {
         NodeChainBuilder<I, T> newBuilder = new NodeChainBuilder<>();
         newBuilder.firstNode = this.firstNode;
-        newBuilder.lastNode = node;
+        newBuilder.lastNodes = List.of((Node<?, T>) node);
         newBuilder.lastOutput = null;
         
         if (firstNode == null) {
             newBuilder.firstNode = (Node<I, ?>) node;
         } else {
-            ((Node<Object, O>) lastNode).setNext(node);
+            for (Node<?, O> lastNode : lastNodes) {
+                ((Node<Object, O>) lastNode).setNext(node);
+            }
         }
         return newBuilder;
+    }
+
+    public NodeChainBuilder<I, O> connect(Node<?, O> from, Node<O, ?> to) {
+        from.setNext(to);
+        return this;
     }
 
     public Node<I, ?> build() {
         return firstNode;
     }
 
-    public Node<?, O> getLastNode() {
-        return lastNode;
+    public List<Node<?, O>> getLastNodes() {
+        return lastNodes;
     }
 
     public void execute(I input) {
@@ -39,7 +53,11 @@ public class NodeChainBuilder<I, O> {
         firstNode.setInput(input);
         firstNode.act();
         
-        this.lastOutput = lastNode.getOutput(); // store the last node's output after execution
+        Node<?, ?> current = firstNode;
+        while (current.next() != null) {
+            current = current.next();
+        }
+        this.lastOutput = (O) current.getOutput();
     }
 
     private void resetChain() {
@@ -50,11 +68,6 @@ public class NodeChainBuilder<I, O> {
         }
     }
     
-    /**
-     * Returns the output from the last node in the chain after execution.
-     * @return The final output value from the chain execution
-     * @throws IllegalStateException if the chain hasn't been executed yet
-     */
     public O getLastOutput() {
         if (lastOutput == null) {
             throw new IllegalStateException("Chain has not been executed yet");

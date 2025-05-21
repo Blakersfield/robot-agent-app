@@ -27,7 +27,6 @@ public class ChatPanel extends JPanel {
     protected LLMClient llmClient;
     protected SqlLiteDao sqlLiteDao;
     protected List<ChatMessage> chatMessages = new ArrayList<>();
-    protected String chatId;
     private NodeChainBuilder chain;
     protected JTextPane chatPane;
     protected JScrollPane chatScrollPane;
@@ -43,8 +42,8 @@ public class ChatPanel extends JPanel {
         this.llmClient = llmClient;
         this.sqlLiteDao = sqlLiteDao;
         this.chain = initChain();
-        if (chatId == null) {
-            chatId = UUID.randomUUID().toString();
+        if (sqlLiteDao.getCurrentChatId() == null) {
+            sqlLiteDao.setCurrentChatId(UUID.randomUUID().toString());
         }
 
         initializeLayout();
@@ -53,7 +52,7 @@ public class ChatPanel extends JPanel {
         initializeInputArea();
         initializeListeners();
 
-        loadAndRenderChatHistory(chatId);
+        loadAndRenderChatHistory(sqlLiteDao.getCurrentChatId());
     }
 
     protected void initializeLayout() {
@@ -112,8 +111,8 @@ public class ChatPanel extends JPanel {
         updateChatButton.addActionListener(e -> {
             String newId = chatNameField.getText().trim();
             if (!newId.isEmpty()) {
-                sqlLiteDao.updateChatId(chatId, newId);
-                chatId = newId;
+                sqlLiteDao.updateChatId(sqlLiteDao.getCurrentChatId(), newId);
+                sqlLiteDao.setCurrentChatId(newId);
                 updateChatSelector();
             }
         });
@@ -132,8 +131,8 @@ public class ChatPanel extends JPanel {
         ChatMessage userMsg = new ChatMessage("user", userInput);
         chatMessages.add(userMsg);
         try {
-            sqlLiteDao.saveChatMessage(userMsg, chatId);
-            logger.debug("Saved user message to chat {}", chatId);
+            sqlLiteDao.saveChatMessage(userMsg, sqlLiteDao.getCurrentChatId());
+            logger.debug("Saved user message to chat {}", sqlLiteDao.getCurrentChatId());
         } catch (Exception e) {
             logger.error("Failed to save user message", e);
         }
@@ -142,13 +141,12 @@ public class ChatPanel extends JPanel {
 
         new Thread(() -> {
             try {
-                // ChatMessage response = llmClient.chat(chatMessages);
                 chain.execute(chatMessages);
                 ChatMessage response = (ChatMessage) chain.getLastOutput();
                 chatMessages.add(response);
                 try {
-                    sqlLiteDao.saveChatMessage(response, chatId);
-                    logger.debug("Saved LLM response to chat {}", chatId);
+                    sqlLiteDao.saveChatMessage(response, sqlLiteDao.getCurrentChatId());
+                    logger.debug("Saved LLM response to chat {}", sqlLiteDao.getCurrentChatId());
                 } catch (Exception e) {
                     logger.error("Failed to save LLM response", e);
                 }
@@ -194,7 +192,7 @@ public class ChatPanel extends JPanel {
             List<ChatMessage> loadedMessages = sqlLiteDao.getChatMessagesById(chatId);
             chatPane.setText("");
             if (loadedMessages != null && !loadedMessages.isEmpty()) {
-                this.chatId = chatId;
+                sqlLiteDao.setCurrentChatId(chatId);
                 this.chatMessages = loadedMessages;
                 logger.info("Loaded chat history for chat {}", chatId);
                 for (ChatMessage msg : chatMessages) {
@@ -210,23 +208,24 @@ public class ChatPanel extends JPanel {
 
     protected void updateChatSelector() {
         Set<String> ids = new LinkedHashSet<>(sqlLiteDao.getChatIds());
-        ids.remove(chatId);
+        ids.remove(sqlLiteDao.getCurrentChatId());
         List<String> finalList = new ArrayList<>();
-        finalList.add(chatId);
+        finalList.add(sqlLiteDao.getCurrentChatId());
         finalList.addAll(ids);
 
         chatSelector.removeAllItems();
         for (String id : finalList) {
             chatSelector.addItem(id);
         }
-        chatSelector.setSelectedItem(chatId);
+        chatSelector.setSelectedItem(sqlLiteDao.getCurrentChatId());
     }
 
     protected void startNewChat() {
         this.chatMessages = new ArrayList<>();
-        this.chatId = UUID.randomUUID().toString();
-        logger.info("Started new chat with ID: {}", chatId);
-        chatSelector.setSelectedItem(this.chatId);
+        String newChatId = UUID.randomUUID().toString();
+        sqlLiteDao.setCurrentChatId(newChatId);
+        logger.info("Started new chat with ID: {}", newChatId);
+        chatSelector.setSelectedItem(newChatId);
         updateChatSelector();
         chatPane.setText("");
         chatPane.repaint();

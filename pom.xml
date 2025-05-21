@@ -51,6 +51,13 @@
       <artifactId>logback-classic</artifactId>
       <version>1.4.14</version>
     </dependency>
+
+    <!-- OpenCSV -->
+    <dependency>
+      <groupId>com.opencsv</groupId>
+      <artifactId>opencsv</artifactId>
+      <version>5.9</version>
+    </dependency>
   </dependencies>
    <build>
         <plugins>
