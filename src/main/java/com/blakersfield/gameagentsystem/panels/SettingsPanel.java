@@ -24,8 +24,11 @@ public class SettingsPanel extends JPanel{
         passPanel.add(new JLabel("Enter password:"));
         JPasswordField passField = new JPasswordField(10);
         JButton unlockBtn = new JButton("Unlock");
+        JButton lockBtn = new JButton("Lock");
+        lockBtn.setVisible(false);
         passPanel.add(passField);
         passPanel.add(unlockBtn);
+        passPanel.add(lockBtn);
         form.add(passPanel);
     
 
@@ -59,6 +62,7 @@ public class SettingsPanel extends JPanel{
 
         JPanel ollamaFields = new JPanel(new GridLayout(0, 2));
         JTextField ollamaUrl = new JTextField(sqlLiteDao.getConfigSetting(Configuration.OLLAMA_BASE_URL));
+        JTextField ollamaPort = new JTextField(sqlLiteDao.getConfigSetting(Configuration.OLLAMA_PORT));
         JComboBox<String> ollamaModel = new JComboBox<>(new String[] {
             sqlLiteDao.getConfigSetting(Configuration.OLLAMA_MODEL) , "llama3:8b", "mistral", "phi3", "gemma:7b", "Other..."
         });
@@ -75,6 +79,8 @@ public class SettingsPanel extends JPanel{
 
         ollamaFields.add(new JLabel("Ollama URL:"));
         ollamaFields.add(ollamaUrl);
+        ollamaFields.add(new JLabel("Ollama Port:"));
+        ollamaFields.add(ollamaPort);
         ollamaFields.add(new JLabel("Ollama Model:"));
         ollamaFields.add(ollamaModel);
         ollamaFields.add(ollamaCustomModelLabel);
@@ -108,6 +114,7 @@ public class SettingsPanel extends JPanel{
         saveButton.addActionListener(e -> {
             try {
                 sqlLiteDao.updateConfigSetting(Configuration.OLLAMA_BASE_URL, ollamaUrl.getText().trim());
+                sqlLiteDao.updateConfigSetting(Configuration.OLLAMA_PORT, ollamaPort.getText().trim());
                 String selectedOllamaModel = ollamaModel.getSelectedItem().toString();
                 String ollamaModelToSave = "Other...".equals(selectedOllamaModel) ? ollamaCustomModel.getText().trim() : selectedOllamaModel;
                 sqlLiteDao.updateConfigSetting(Configuration.OLLAMA_MODEL, ollamaModelToSave);
@@ -152,10 +159,21 @@ public class SettingsPanel extends JPanel{
             if (sqlLiteDao.validateEncryptionKey()) {
                 logger.info("Settings panel unlocked successfully");
                 settingsFields.setVisible(true);
+                unlockBtn.setVisible(false);
+                lockBtn.setVisible(true);
+                passField.setText("");
             } else {
                 logger.warn("Failed to unlock settings panel - invalid password");
                 JOptionPane.showMessageDialog(this, "Invalid password", "Access Denied", JOptionPane.ERROR_MESSAGE);
             }
+        });
+    
+        lockBtn.addActionListener(e -> {
+            settingsFields.setVisible(false);
+            unlockBtn.setVisible(true);
+            lockBtn.setVisible(false);
+            passField.setText("");
+            logger.info("Settings panel locked");
         });
     
         this.add(form, BorderLayout.NORTH);
