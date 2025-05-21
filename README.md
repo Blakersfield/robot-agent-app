@@ -1,4 +1,4 @@
-# Game Agent System
+# Game Agent Rule Inference
 
 A Java-based application that provides an interface for interacting with Large Language Models (LLMs) through a chat interface and game action processing system.
 
