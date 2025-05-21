@@ -14,13 +14,14 @@ import org.slf4j.LoggerFactory;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 import com.blakersfield.gameagentsystem.llm.request.ChatRequest;
 import com.blakersfield.gameagentsystem.llm.request.ChatResponse;
+import com.blakersfield.gameagentsystem.utility.ObjectMapperProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class OllamaClient implements LLMClient {
     private static final Logger logger = LoggerFactory.getLogger(OllamaClient.class);
     private final CloseableHttpClient httpClient;
     private final String apiUrl;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = ObjectMapperProvider.getObjectMapper();
     private final String modelName;
 
     public OllamaClient(CloseableHttpClient httpClient, String baseUrl, Integer port, String modelName) {

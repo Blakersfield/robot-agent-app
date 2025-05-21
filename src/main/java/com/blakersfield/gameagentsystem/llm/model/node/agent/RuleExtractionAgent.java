@@ -8,6 +8,7 @@ import com.blakersfield.gameagentsystem.llm.clients.LLMClient;
 import com.blakersfield.gameagentsystem.llm.clients.SqlLiteDao;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.data.Rule;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
+import com.blakersfield.gameagentsystem.utility.ObjectMapperProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -23,13 +24,12 @@ public class RuleExtractionAgent extends Agent<String, String> {
     private final String extractionPrompt;
     private final String deconflictSystemPrompt;
     private final String deconflictUserPrompt;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = ObjectMapperProvider.getObjectMapper();
     private static final int MAX_ATTEMPTS = 3;
 
     public RuleExtractionAgent(LLMClient llmClient, SqlLiteDao sqliteDao) {
         this.llmClient = Objects.requireNonNull(llmClient, "OllamaClient cannot be null");
         this.sqliteDao = Objects.requireNonNull(sqliteDao, "SqlLiteDao cannot be null");
-        this.objectMapper = new ObjectMapper();
         this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
         
         this.extractionPrompt = """
@@ -131,7 +131,7 @@ public class RuleExtractionAgent extends Agent<String, String> {
     private String cleanJsonResponse(String response) {
         String cleaned = response.trim();
         
-        // Extract content between square brackets, handling markdown code blocks
+        // clean string to fix leading ```json thing
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\[(.*?)\\]", java.util.regex.Pattern.DOTALL);
         java.util.regex.Matcher matcher = pattern.matcher(cleaned);
         if (matcher.find()) {

@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 import com.blakersfield.gameagentsystem.llm.request.ChatRequest;
 import com.blakersfield.gameagentsystem.llm.request.ChatResponse;
+import com.blakersfield.gameagentsystem.utility.ObjectMapperProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class OpenAiClient implements LLMClient {
@@ -22,7 +23,7 @@ public class OpenAiClient implements LLMClient {
     private final String apiUrl;
     private final String apiKeyString;
     private final String modelName;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = ObjectMapperProvider.getObjectMapper();
 
     public OpenAiClient(CloseableHttpClient httpClient, String apiUrl, String modelName, String apiKeyString) {
         this.httpClient = httpClient;

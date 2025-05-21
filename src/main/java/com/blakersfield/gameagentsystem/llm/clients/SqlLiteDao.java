@@ -6,6 +6,10 @@ import java.util.Base64;
 import java.util.List;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Map;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
@@ -15,6 +19,7 @@ import com.blakersfield.gameagentsystem.llm.model.node.agent.data.Rule;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.opencsv.CSVWriter;
 
 public class SqlLiteDao {
     private static final Logger logger = LoggerFactory.getLogger(SqlLiteDao.class);
@@ -22,6 +27,8 @@ public class SqlLiteDao {
     private static final String ALGORITHM = "AES";
     private static SecretKeySpec currentKeySpec = null;
     private static boolean encryptionEnabled = false;
+    private static String encryptionKey;
+    private static final String DB_URL = "jdbc:sqlite:game_agent.db";
 
     private static final String URL_PATTERN = "^(https?://)(localhost|\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,})(:\\d+)?(/[\\w-./?%&=]*)?$";
     private static final String PORT_PATTERN = "^\\d{1,5}$";
@@ -392,26 +399,77 @@ public class SqlLiteDao {
         }
     }
 
-    public void saveGamePrompt(String prompt) {
-        String sql = "INSERT INTO game_prompt(content) VALUES (?)";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setString(1, prompt);
-            stmt.executeUpdate();
+    public List<Map<String, Object>> executeQuery(String sql) {
+        List<Map<String, Object>> results = new ArrayList<>();
+        try (Statement stmt = this.connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            
+            while (rs.next()) {
+                Map<String, Object> row = new HashMap<>();
+                for (int i = 1; i <= columnCount; i++) {
+                    row.put(metaData.getColumnName(i), rs.getObject(i));
+                }
+                results.add(row);
+            }
         } catch (SQLException e) {
-            logger.error("SqlLiteDao: Error saving game prompt", e);
+            logger.error("Failed to execute query: " + sql, e);
+            throw new RuntimeException("Failed to execute query", e);
+        }
+        return results;
+    }
+
+    public int executeUpdate(String sql) {
+        try (Statement stmt = this.connection.createStatement()) {
+            return stmt.executeUpdate(sql);
+        } catch (SQLException e) {
+            logger.error("Failed to execute update: " + sql, e);
+            throw new RuntimeException("Failed to execute update", e);
         }
     }
 
-    public String getGamePrompt() {
-        String sql = "SELECT content FROM game_prompt ORDER BY prompt_id DESC LIMIT 1";
-        try (PreparedStatement stmt = connection.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            if (rs.next()) {
-                return rs.getString("content");
+    public void exportTableToCSV(String tableName, String filePath) {
+        try (Statement stmt = this.connection.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT * FROM " + tableName);
+             FileWriter writer = new FileWriter(filePath);
+             CSVWriter csvWriter = new CSVWriter(writer)) {
+            
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            
+            // Write headers
+            String[] headers = new String[columnCount];
+            for (int i = 1; i <= columnCount; i++) {
+                headers[i-1] = metaData.getColumnName(i);
             }
-        } catch (SQLException e) {
-            logger.error("SqlLiteDao: Error getting game prompt", e);
+            csvWriter.writeNext(headers);
+            
+            // Write data
+            while (rs.next()) {
+                String[] row = new String[columnCount];
+                for (int i = 1; i <= columnCount; i++) {
+                    row[i-1] = String.valueOf(rs.getObject(i));
+                }
+                csvWriter.writeNext(row);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to export table " + tableName + " to CSV", e);
+            throw new RuntimeException("Failed to export table to CSV", e);
         }
-        return null;
+    }
+
+    public void clearTable(String tableName) {
+        try (Statement stmt = this.connection.createStatement()) {
+            stmt.executeUpdate("DELETE FROM " + tableName);
+        } catch (SQLException e) {
+            logger.error("Failed to clear table " + tableName, e);
+            throw new RuntimeException("Failed to clear table", e);
+        }
+    }
+
+    private Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(DB_URL);
     }
 }
