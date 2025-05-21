@@ -26,8 +26,10 @@ public class Configuration {
     public static String DEFAULT_EXPORT_PATH = System.getProperty("user.home");
 
     public static String INTERFACE_PROMPT = "INTERFACE_PROMPT";
-    public static String DEFAULT_INTERFACE_PROMPT = """
-            Let's play a game. I will provide a word, and you will respond with a word that begins with the last letter of the word you provided and so on, back and forth. During that time I may provide additional feedback and clarification of rules. In those cases I will specify what my word is after providing the information. 
-My word is:
-            """;;
+    public static String DEFAULT_INTERFACE_PROMPT = 
+            "Let's play a game. I will provide a word, and you will respond with a word that begins with " + 
+            "the last letter of the word you provided and so on, back and forth. During that time I may " + 
+            "provide additional feedback and clarification of rules. In those cases I will specify what my " + 
+            "word is after providing the information. \n" + 
+            "My word is:";
 }

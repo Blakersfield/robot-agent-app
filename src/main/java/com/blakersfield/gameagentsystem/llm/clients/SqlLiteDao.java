@@ -333,15 +333,17 @@ public class SqlLiteDao {
     public List<Rule> getAllRules(String chatId){
         String sql = "select rule_id, chat_id, content from game_rules where chat_id = ?";
         List<Rule> result = new ArrayList<Rule>();
-        try (PreparedStatement stmt = connection.prepareStatement(sql);
-            ResultSet rs = stmt.executeQuery()){
-            while (rs.next()){
-                Rule rule = new Rule(
-                    rs.getLong(1),
-                    rs.getString(2),
-                    rs.getString(3)
-                );
-                result.add(rule);
+        try (PreparedStatement stmt = connection.prepareStatement(sql)){
+            stmt.setString(1, chatId);
+            try(ResultSet rs = stmt.executeQuery()){
+                while (rs.next()){
+                    Rule rule = new Rule(
+                        rs.getLong(1),
+                        rs.getString(2),
+                        rs.getString(3)
+                    );
+                    result.add(rule);
+                }
             }
         } catch (Exception e){
             logger.error("SqlLiteDao: Error getting rules for chat id", e);
@@ -351,10 +353,15 @@ public class SqlLiteDao {
 
     public void updateChatId(String oldId, String newId){
         String sql = "update chat_messages set chat_id = ? where chat_id = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)){
+        String sql2 = "update game_rules set chat_id = ? where chat_id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql);
+             PreparedStatement stmt2 = connection.prepareStatement(sql2)){
             stmt.setString(1, newId);
             stmt.setString(2, oldId);
             stmt.executeUpdate();
+            stmt2.setString(1, newId);
+            stmt2.setString(2, oldId);
+            stmt2.executeUpdate();
         } catch (Exception e){
             logger.error("SqlLiteDao: Error updating chat id", e);
         }
@@ -439,14 +446,12 @@ public class SqlLiteDao {
             ResultSetMetaData metaData = rs.getMetaData();
             int columnCount = metaData.getColumnCount();
             
-            // Write headers
             String[] headers = new String[columnCount];
             for (int i = 1; i <= columnCount; i++) {
                 headers[i-1] = metaData.getColumnName(i);
             }
             csvWriter.writeNext(headers);
             
-            // Write data
             while (rs.next()) {
                 String[] row = new String[columnCount];
                 for (int i = 1; i <= columnCount; i++) {
@@ -467,9 +472,5 @@ public class SqlLiteDao {
             logger.error("Failed to clear table " + tableName, e);
             throw new RuntimeException("Failed to clear table", e);
         }
-    }
-
-    private Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(DB_URL);
     }
 }

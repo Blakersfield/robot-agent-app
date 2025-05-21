@@ -27,10 +27,41 @@ import java.util.List;
 public class InterfacePanel extends ChatPanel {
     private static final Logger logger = LoggerFactory.getLogger(InterfacePanel.class);
     private NodeChainBuilder chain;
+    private String interfacePrompt;
+    private JTextArea promptTextArea;
 
     public InterfacePanel(CloseableHttpClient httpClient, SqlLiteDao sqlLiteDao, LLMClient llmClient) {
         super(httpClient, sqlLiteDao, llmClient);
+        interfacePrompt = sqlLiteDao.getConfigSetting(Configuration.INTERFACE_PROMPT);
         initializeLangChain();
+        initializePromptPanel();
+    }
+
+    private void initializePromptPanel() {
+        promptTextArea = new JTextArea(4, 40);
+        promptTextArea.setEditable(false);
+        promptTextArea.setLineWrap(true);
+        promptTextArea.setWrapStyleWord(true);
+        promptTextArea.setText(interfacePrompt != null ? interfacePrompt : "");
+        promptTextArea.setBackground(new Color(240, 240, 240));
+        promptTextArea.setRows(4);
+        promptTextArea.setMaximumSize(new Dimension(Integer.MAX_VALUE, promptTextArea.getPreferredSize().height));
+        
+        JPanel promptPanel = new JPanel(new BorderLayout());
+        promptPanel.add(promptTextArea, BorderLayout.CENTER);
+        
+        JPanel containerPanel = new JPanel(new BorderLayout());
+        containerPanel.add(promptPanel, BorderLayout.NORTH);
+        
+        Component[] components = getComponents();
+        for (Component component : components) {
+            if (component instanceof JScrollPane) {
+                containerPanel.add(component, BorderLayout.CENTER);
+                break;
+            }
+        }
+        
+        add(containerPanel, BorderLayout.CENTER);
     }
 
     private void initializeLangChain() {
@@ -109,6 +140,15 @@ public class InterfacePanel extends ChatPanel {
             dialog.add(tabbedPane, BorderLayout.CENTER);
             dialog.setSize(800, 600);
             dialog.setLocationRelativeTo(this);
+            
+            dialog.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosing(WindowEvent e) {
+                    dialog.dispose();
+                }
+            });
+            
+            dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
             dialog.setVisible(true);
         });
     }
@@ -117,9 +157,19 @@ public class InterfacePanel extends ChatPanel {
     protected void handleInputSubmission(String userInput) {
         if (userInput.isEmpty()) return;
 
-        String finalInput = chatMessages.size() == 0 && sqlLiteDao.getConfigSetting(Configuration.INTERFACE_PROMPT) != null && !sqlLiteDao.getConfigSetting(Configuration.INTERFACE_PROMPT).trim().isEmpty()
-            ? sqlLiteDao.getConfigSetting(Configuration.INTERFACE_PROMPT) + "\n\n" + userInput
-            : userInput;
+        // prepend the interface prompt if this is the first message in a new chat
+        final String finalInput;
+        if (chatMessages.isEmpty()) {
+            String configPrompt = sqlLiteDao.getConfigSetting(Configuration.INTERFACE_PROMPT);
+            if (configPrompt != null && !configPrompt.trim().isEmpty()) {
+                finalInput = configPrompt + "\n\n" + userInput;
+                logger.debug("Prepending interface prompt to first message. Final input: {}", finalInput);
+            } else {
+                finalInput = userInput;
+            }
+        } else {
+            finalInput = userInput;
+        }
 
         ChatMessage userMsg = new ChatMessage("user", finalInput);
         chatMessages.add(userMsg);

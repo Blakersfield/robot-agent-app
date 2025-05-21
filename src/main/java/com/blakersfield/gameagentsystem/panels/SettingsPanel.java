@@ -137,6 +137,7 @@ public class SettingsPanel extends JPanel{
                 sqlLiteDao.updateConfigSetting(Configuration.OPENAI_MODEL, openaiModel.getSelectedItem().toString());
 
                 sqlLiteDao.updateConfigSetting(Configuration.LLM_PROVIDER, llmSelect.getSelectedItem().toString());
+                sqlLiteDao.updateConfigSetting(Configuration.INTERFACE_PROMPT, gamePromptArea.getText());
                 Main.reinitializeLLMClient();
                 
                 logger.info("Settings updated successfully - LLM Provider: {}", llmSelect.getSelectedItem());
