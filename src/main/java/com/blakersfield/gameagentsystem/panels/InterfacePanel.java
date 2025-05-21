@@ -20,6 +20,7 @@ import com.blakersfield.gameagentsystem.llm.model.node.agent.RuleExtractionAgent
 import com.blakersfield.gameagentsystem.llm.model.node.agent.data.Choice;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.data.Rule;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
+import com.blakersfield.gameagentsystem.config.Configuration;
 
 import java.util.List;
 
@@ -116,8 +117,8 @@ public class InterfacePanel extends ChatPanel {
     protected void handleInputSubmission(String userInput) {
         if (userInput.isEmpty()) return;
 
-        String finalInput = chatMessages.size() == 0 && sqlLiteDao.getGamePrompt() != null && !sqlLiteDao.getGamePrompt().trim().isEmpty()
-            ? sqlLiteDao.getGamePrompt() + "\n\n" + userInput
+        String finalInput = chatMessages.size() == 0 && sqlLiteDao.getConfigSetting(Configuration.INTERFACE_PROMPT) != null && !sqlLiteDao.getConfigSetting(Configuration.INTERFACE_PROMPT).trim().isEmpty()
+            ? sqlLiteDao.getConfigSetting(Configuration.INTERFACE_PROMPT) + "\n\n" + userInput
             : userInput;
 
         ChatMessage userMsg = new ChatMessage("user", finalInput);

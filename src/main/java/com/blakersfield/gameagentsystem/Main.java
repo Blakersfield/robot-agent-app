@@ -29,7 +29,7 @@ import java.sql.*;
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
     private static final String DB_PATH = "app.db";
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = ObjectMapperProvider.getObjectMapper();
     private static final CloseableHttpClient HTTP_CLIENT = HttpClients.createDefault();
     private static Connection connection;
     private static SqlLiteDao sqlLiteDao;
@@ -218,11 +218,11 @@ public class Main {
         // Initialize default settings only after encryption is set up
         initConfigSetting(Configuration.OLLAMA_BASE_URL, Configuration.DEFAULT_OLLAMA_BASE_URL);
         initConfigSetting(Configuration.OLLAMA_MODEL, Configuration.DEFAULT_OLLAMA_MODEL);
-        initConfigSetting(Configuration.OPENAI_API_KEY, Configuration.DEFAULT_OPENAI_API_KEY);
-        initConfigSetting(Configuration.OPENAI_API_SECRET, Configuration.DEFAULT_OPENAI_API_SECRET);
+        initConfigSetting(Configuration.OPENAI_API_TOKEN, Configuration.DEFAULT_OPENAI_API_TOKEN);
         initConfigSetting(Configuration.OPENAI_MODEL, Configuration.DEFAULT_OPENAI_MODEL);
         initConfigSetting(Configuration.LLM_PROVIDER, Configuration.DEFAULT_LLM_PROVIDER);
         initConfigSetting(Configuration.OLLAMA_PORT, Configuration.DEFAULT_OLLAMA_PORT);
+        initConfigSetting(Configuration.INTERFACE_PROMPT, Configuration.DEFAULT_INTERFACE_PROMPT);
     }
 
     private static void initConfigSetting(String key, String value) {
@@ -234,10 +234,9 @@ public class Main {
     private static void initializeLLMClient() {
         String provider = sqlLiteDao.getConfigSetting(Configuration.LLM_PROVIDER);
         if ("OpenAI".equals(provider)) {
-            String apiKey = sqlLiteDao.getConfigSetting(Configuration.OPENAI_API_KEY);
-            String apiSecret = sqlLiteDao.getConfigSetting(Configuration.OPENAI_API_SECRET);
+            String apiToken = sqlLiteDao.getConfigSetting(Configuration.OPENAI_API_TOKEN);
             String model = sqlLiteDao.getConfigSetting(Configuration.OPENAI_MODEL);
-            llmClient = new OpenAiClient(HTTP_CLIENT, "https://api.openai.com/v1/chat/completions", model, apiKey);
+            llmClient = new OpenAiClient(HTTP_CLIENT, "https://api.openai.com/v1/chat/completions", model, apiToken);
         } else {
             String baseUrl = sqlLiteDao.getConfigSetting(Configuration.OLLAMA_BASE_URL);
             String model = sqlLiteDao.getConfigSetting(Configuration.OLLAMA_MODEL);

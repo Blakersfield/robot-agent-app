@@ -24,8 +24,11 @@ public class SettingsPanel extends JPanel{
         passPanel.add(new JLabel("Enter password:"));
         JPasswordField passField = new JPasswordField(10);
         JButton unlockBtn = new JButton("Unlock");
+        JButton lockBtn = new JButton("Lock");
+        lockBtn.setVisible(false);
         passPanel.add(passField);
         passPanel.add(unlockBtn);
+        passPanel.add(lockBtn);
         form.add(passPanel);
     
 
@@ -45,11 +48,11 @@ public class SettingsPanel extends JPanel{
         JTextArea gamePromptArea = new JTextArea(5, 40);
         gamePromptArea.setLineWrap(true);
         gamePromptArea.setWrapStyleWord(true);
-        gamePromptArea.setText(sqlLiteDao.getGamePrompt());
+        gamePromptArea.setText(sqlLiteDao.getConfigSetting(Configuration.INTERFACE_PROMPT));
         JScrollPane gamePromptScroll = new JScrollPane(gamePromptArea);
         JButton saveGamePromptButton = new JButton("Save Game Prompt");
         saveGamePromptButton.addActionListener(e -> {
-            sqlLiteDao.saveGamePrompt(gamePromptArea.getText());
+            sqlLiteDao.updateConfigSetting(Configuration.INTERFACE_PROMPT, gamePromptArea.getText());
             JOptionPane.showMessageDialog(this, "Game prompt saved successfully!");
         });
         gamePromptPanel.add(gamePromptScroll, BorderLayout.CENTER);
@@ -59,6 +62,7 @@ public class SettingsPanel extends JPanel{
 
         JPanel ollamaFields = new JPanel(new GridLayout(0, 2));
         JTextField ollamaUrl = new JTextField(sqlLiteDao.getConfigSetting(Configuration.OLLAMA_BASE_URL));
+        JTextField ollamaPort = new JTextField(sqlLiteDao.getConfigSetting(Configuration.OLLAMA_PORT));
         JComboBox<String> ollamaModel = new JComboBox<>(new String[] {
             sqlLiteDao.getConfigSetting(Configuration.OLLAMA_MODEL) , "llama3:8b", "mistral", "phi3", "gemma:7b", "Other..."
         });
@@ -67,6 +71,12 @@ public class SettingsPanel extends JPanel{
         ollamaCustomModel.setVisible(false);
         JLabel ollamaCustomModelLabel = new JLabel("Custom Model:");
         ollamaCustomModelLabel.setVisible(false);
+
+        Dimension fieldSize = new Dimension(200, 25);
+        ollamaUrl.setPreferredSize(fieldSize);
+        ollamaPort.setPreferredSize(fieldSize);
+        ollamaCustomModel.setPreferredSize(fieldSize);
+
         ollamaModel.addActionListener(e -> {
             String selected = (String) ollamaModel.getSelectedItem();
             ollamaCustomModel.setVisible("Other...".equals(selected));
@@ -75,23 +85,25 @@ public class SettingsPanel extends JPanel{
 
         ollamaFields.add(new JLabel("Ollama URL:"));
         ollamaFields.add(ollamaUrl);
+        ollamaFields.add(new JLabel("Ollama Port:"));
+        ollamaFields.add(ollamaPort);
         ollamaFields.add(new JLabel("Ollama Model:"));
         ollamaFields.add(ollamaModel);
         ollamaFields.add(ollamaCustomModelLabel);
         ollamaFields.add(ollamaCustomModel);
 
         JPanel openaiFields = new JPanel(new GridLayout(0, 2));
-        JTextField openaiKey = new JTextField(sqlLiteDao.getConfigSetting(Configuration.OPENAI_API_KEY));
-        JTextField openaiSecret = new JTextField(sqlLiteDao.getConfigSetting(Configuration.OPENAI_API_SECRET));
+        JTextField openaiToken = new JTextField();
+        String savedToken = sqlLiteDao.getConfigSetting(Configuration.OPENAI_API_TOKEN);
+        openaiToken.setText(savedToken != null ? savedToken : "");
         JComboBox<String> openaiModel = new JComboBox<>(new String[] {
             "gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"
         });
         openaiModel.setSelectedItem(sqlLiteDao.getConfigSetting(Configuration.OPENAI_MODEL));
+        openaiToken.setPreferredSize(fieldSize);
 
-        openaiFields.add(new JLabel("OpenAI API Key:"));
-        openaiFields.add(openaiKey);
-        openaiFields.add(new JLabel("OpenAI API Secret:"));
-        openaiFields.add(openaiSecret);
+        openaiFields.add(new JLabel("OpenAI API Token:"));
+        openaiFields.add(openaiToken);
         openaiFields.add(new JLabel("OpenAI Model:"));
         openaiFields.add(openaiModel);
 
@@ -104,16 +116,24 @@ public class SettingsPanel extends JPanel{
         settingsFields.add(openaiFields);
         settingsFields.add(Box.createVerticalStrut(20)); 
 
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JButton saveButton = new JButton("Save All Settings");
+        JButton dbButton = new JButton("Database");
+        dbButton.setVisible(false);
+        buttonPanel.add(saveButton);
+        buttonPanel.add(dbButton);
+        settingsFields.add(buttonPanel);
+        settingsFields.add(Box.createVerticalStrut(20)); 
+
         saveButton.addActionListener(e -> {
             try {
                 sqlLiteDao.updateConfigSetting(Configuration.OLLAMA_BASE_URL, ollamaUrl.getText().trim());
+                sqlLiteDao.updateConfigSetting(Configuration.OLLAMA_PORT, ollamaPort.getText().trim());
                 String selectedOllamaModel = ollamaModel.getSelectedItem().toString();
                 String ollamaModelToSave = "Other...".equals(selectedOllamaModel) ? ollamaCustomModel.getText().trim() : selectedOllamaModel;
                 sqlLiteDao.updateConfigSetting(Configuration.OLLAMA_MODEL, ollamaModelToSave);
 
-                sqlLiteDao.updateConfigSetting(Configuration.OPENAI_API_KEY, openaiKey.getText().trim());
-                sqlLiteDao.updateConfigSetting(Configuration.OPENAI_API_SECRET, openaiSecret.getText().trim());
+                sqlLiteDao.updateConfigSetting(Configuration.OPENAI_API_TOKEN, openaiToken.getText().trim());
                 sqlLiteDao.updateConfigSetting(Configuration.OPENAI_MODEL, openaiModel.getSelectedItem().toString());
 
                 sqlLiteDao.updateConfigSetting(Configuration.LLM_PROVIDER, llmSelect.getSelectedItem().toString());
@@ -126,7 +146,15 @@ public class SettingsPanel extends JPanel{
                 JOptionPane.showMessageDialog(this, "Failed to save settings: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
-        settingsFields.add(saveButton);
+
+        dbButton.addActionListener(e -> {
+            JFrame dbFrame = new JFrame("Database Management");
+            dbFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+            dbFrame.add(new DatabasePanel(sqlLiteDao));
+            dbFrame.pack();
+            dbFrame.setLocationRelativeTo(this);
+            dbFrame.setVisible(true);
+        });
     
         llmSelect.addActionListener(e -> {
             String selected = (String) llmSelect.getSelectedItem();
@@ -152,10 +180,23 @@ public class SettingsPanel extends JPanel{
             if (sqlLiteDao.validateEncryptionKey()) {
                 logger.info("Settings panel unlocked successfully");
                 settingsFields.setVisible(true);
+                unlockBtn.setVisible(false);
+                lockBtn.setVisible(true);
+                dbButton.setVisible(true);
+                passField.setText("");
             } else {
                 logger.warn("Failed to unlock settings panel - invalid password");
                 JOptionPane.showMessageDialog(this, "Invalid password", "Access Denied", JOptionPane.ERROR_MESSAGE);
             }
+        });
+    
+        lockBtn.addActionListener(e -> {
+            settingsFields.setVisible(false);
+            unlockBtn.setVisible(true);
+            lockBtn.setVisible(false);
+            dbButton.setVisible(false);
+            passField.setText("");
+            logger.info("Settings panel locked");
         });
     
         this.add(form, BorderLayout.NORTH);

@@ -44,7 +44,6 @@ public class LogViewerPanel extends JDialog {
         buttonPanel.add(closeButton);
         mainPanel.add(buttonPanel, BorderLayout.SOUTH);
 
-        // check logfile periodically
         refreshTimer = new Timer(5000, e -> refreshLogs());
         refreshTimer.start();
 
@@ -66,19 +65,16 @@ public class LogViewerPanel extends JDialog {
             Path logPath = Paths.get(logFilePath);
             Path logDir = logPath.getParent();
             
-            // Create logs directory if it doesn't exist
             if (logDir != null && !Files.exists(logDir)) {
                 Files.createDirectories(logDir);
                 logger.info("Created logs directory: {}", logDir);
             }
             
-            // Create empty log file if it doesn't exist
             if (!Files.exists(logPath)) {
                 Files.createFile(logPath);
                 logger.info("Created new log file: {}", logPath);
             }
             
-            // Check if file is empty or too small
             if (Files.size(logPath) <= 1) {
                 logArea.setText("Log file is empty. New logs will appear here.");
                 return;
