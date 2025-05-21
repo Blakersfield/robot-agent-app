@@ -18,6 +18,7 @@ import com.blakersfield.gameagentsystem.llm.model.node.agent.InputTypeInterprete
 import com.blakersfield.gameagentsystem.llm.model.node.agent.RagAgent;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.RuleExtractionAgent;
 import com.blakersfield.gameagentsystem.llm.model.node.agent.data.Choice;
+import com.blakersfield.gameagentsystem.llm.model.node.agent.data.Rule;
 import com.blakersfield.gameagentsystem.llm.request.ChatMessage;
 
 import java.util.List;
@@ -52,21 +53,63 @@ public class InterfacePanel extends ChatPanel {
 
     @Override
     protected void initializeToolbar() {
-        super.initializeToolbar();
-        JButton logButton = new JButton("View Logs");
+        JPanel toolPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+
+        chatSelector = new JComboBox<>();
+        toolPanel.add(new JLabel("Select Chat:"));
+        toolPanel.add(chatSelector);
+
+        chatNameField = new JTextField(15);
+        updateChatButton = new JButton("Change Chat Name");
+        newChatButton = new JButton("New Chat");
+        JButton logButton = new JButton("Logs");
+
+        toolPanel.add(chatNameField);
+        toolPanel.add(updateChatButton);
+        toolPanel.add(newChatButton);
+        toolPanel.add(logButton);
+
+        add(toolPanel, BorderLayout.NORTH);
+
+        updateChatSelector();
+
         logButton.addActionListener(e -> {
+            JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Interface Logs and Rules", true);
+            dialog.setLayout(new BorderLayout());
+            
+            JTabbedPane tabbedPane = new JTabbedPane();
+            
+            //logs
             LogViewerPanel logViewer = new LogViewerPanel((Frame) SwingUtilities.getWindowAncestor(this), "logs/interface-panel.log");
-            logViewer.setVisible(true);
-        });
-        
-        // Get the toolbar panel which is the first component in the NORTH position
-        Component[] components = getComponents();
-        for (Component comp : components) {
-            if (comp instanceof JPanel && ((JPanel) comp).getLayout() instanceof FlowLayout) {
-                ((JPanel) comp).add(logButton);
-                break;
+            logViewer.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosing(WindowEvent e) {
+                    dialog.dispose();
+                }
+            });
+            tabbedPane.addTab("Logs", logViewer.getContentPane());
+            
+            //rules
+            JPanel rulesPanel = new JPanel(new BorderLayout());
+            JTextArea rulesText = new JTextArea();
+            rulesText.setEditable(false);
+            JScrollPane rulesScroll = new JScrollPane(rulesText);
+            
+            List<Rule> rules = sqlLiteDao.getAllRules();
+            StringBuilder rulesContent = new StringBuilder();
+            for (Rule rule : rules) {
+                rulesContent.append("Rule ").append(rule.getRuleId()).append(": ").append(rule.getContent()).append("\n");
             }
-        }
+            rulesText.setText(rulesContent.toString());
+            
+            rulesPanel.add(rulesScroll, BorderLayout.CENTER);
+            tabbedPane.addTab("Rules", rulesPanel);
+            
+            dialog.add(tabbedPane, BorderLayout.CENTER);
+            dialog.setSize(800, 600);
+            dialog.setLocationRelativeTo(this);
+            dialog.setVisible(true);
+        });
     }
 
     @Override
