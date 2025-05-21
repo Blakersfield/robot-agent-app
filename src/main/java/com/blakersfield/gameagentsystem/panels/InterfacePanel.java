@@ -41,7 +41,7 @@ public class InterfacePanel extends ChatPanel {
             new Choice("RULE", "Choose this option if there is a rule to be extracted", ruleExtractionAgent)
         );
 
-        InputTypeInterpreterAgent interpreterAgent = new InputTypeInterpreterAgent(choices, llmClient);
+        InputTypeInterpreterAgent interpreterAgent = new InputTypeInterpreterAgent(choices, llmClient,0);
 
         chain = NodeChainBuilder.<String, String>create()
             .add(new InputNode<String, String>())

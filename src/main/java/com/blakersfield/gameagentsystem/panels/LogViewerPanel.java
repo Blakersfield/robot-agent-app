@@ -6,8 +6,11 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class LogViewerPanel extends JDialog {
+    private static final Logger logger = LoggerFactory.getLogger(LogViewerPanel.class);
     private JTextArea logArea;
     private Timer refreshTimer;
     private String logFilePath;
@@ -47,7 +50,7 @@ public class LogViewerPanel extends JDialog {
 
         refreshLogs();
 
-        // stop timer when window is lcosed
+        // stop timer when window is closed
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent windowEvent) {
@@ -60,13 +63,49 @@ public class LogViewerPanel extends JDialog {
 
     private void refreshLogs() {
         try {
-            List<String> lines = Files.readAllLines(Paths.get(logFilePath));
-            String content = lines.stream()
-                .collect(Collectors.joining("\n"));
-            logArea.setText(content);
-            logArea.setCaretPosition(logArea.getDocument().getLength());
+            Path logPath = Paths.get(logFilePath);
+            Path logDir = logPath.getParent();
+            
+            // Create logs directory if it doesn't exist
+            if (logDir != null && !Files.exists(logDir)) {
+                Files.createDirectories(logDir);
+                logger.info("Created logs directory: {}", logDir);
+            }
+            
+            // Create empty log file if it doesn't exist
+            if (!Files.exists(logPath)) {
+                Files.createFile(logPath);
+                logger.info("Created new log file: {}", logPath);
+            }
+            
+            // Check if file is empty or too small
+            if (Files.size(logPath) <= 1) {
+                logArea.setText("Log file is empty. New logs will appear here.");
+                return;
+            }
+            
+            try {
+                List<String> lines = Files.readAllLines(logPath);
+                if (lines.isEmpty()) {
+                    logArea.setText("Log file is empty. New logs will appear here.");
+                } else {
+                    String content = lines.stream()
+                        .collect(Collectors.joining("\n"));
+                    logArea.setText(content);
+                    logArea.setCaretPosition(logArea.getDocument().getLength());
+                }
+            } catch (IOException e) {
+                // If we can't read the file, try to recreate it
+                logger.warn("Error reading log file, attempting to recreate: {}", logFilePath, e);
+                Files.deleteIfExists(logPath);
+                Files.createFile(logPath);
+                logArea.setText("Log file was recreated. New logs will appear here.");
+            }
         } catch (IOException e) {
-            logArea.setText("Error reading log file: " + e.getMessage());
+            logger.error("Error accessing log file: {}", logFilePath, e);
+            logArea.setText("Error accessing log file: " + e.getMessage() + 
+                "\n\nPlease ensure the logs directory exists and is writable." +
+                "\nPath: " + logFilePath);
         }
     }
 } 

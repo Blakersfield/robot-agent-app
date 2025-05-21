@@ -14,10 +14,14 @@ public class InputTypeInterpreterAgent extends Agent<String, String> {
     private final List<Choice> choices;
     private final LLMClient llmClient;
     private Agent<String, ?> chosenNextAgent;
+    private final int defaultAgentIndex;
+    private final static int MAX_ATTEMPTS = 3;
 
-    public InputTypeInterpreterAgent(List<Choice> choices, LLMClient llmClient) {
-        //TODO add default agent which is selected after failure
-        //if default agent is null use the forst
+    public InputTypeInterpreterAgent(List<Choice> choices, LLMClient llmClient, int defaultAgentIndex) {
+        if (defaultAgentIndex < 0 || defaultAgentIndex >= choices.size()-1) {
+            throw new IllegalArgumentException("Default agent index must be between 0 and " + (choices.size() - 1));
+        }
+        this.defaultAgentIndex = defaultAgentIndex;
         this.choices = choices;
         this.llmClient = llmClient;
     }
@@ -29,23 +33,29 @@ public class InputTypeInterpreterAgent extends Agent<String, String> {
             createPrompt(),
             ChatMessage.user(input)
         );
+        int attempts = 0;
+        Optional<Choice> selected = Optional.empty();
+        while (attempts < MAX_ATTEMPTS) {
+            ChatMessage response = llmClient.chat(prompt);
+            String selectedKey = extractChoiceKey(response.getContent());
+            logger.debug("LLM selected action type: {}", selectedKey);
 
-        ChatMessage response = llmClient.chat(prompt);
-        String selectedKey = extractChoiceKey(response.getContent());
-        logger.debug("LLM selected action type: {}", selectedKey);
+            selected = choices.stream()
+                .filter(c -> c.key().equalsIgnoreCase(selectedKey.trim()))
+                .findFirst();
 
-        Optional<Choice> selected = choices.stream()
-            .filter(c -> c.key().equalsIgnoreCase(selectedKey.trim()))
-            .findFirst();
-
-        if (selected.isEmpty()) {
-            logger.error("LLM selected unknown option: {}", selectedKey);
-            throw new IllegalStateException("LLM selected unknown option: " + selectedKey);
+            if (selected.isEmpty() && attempts < MAX_ATTEMPTS) {
+                logger.error("LLM selected unknown option: {}", selectedKey);
+                attempts++;
+            } else if (selected.isPresent()) {
+                attempts = MAX_ATTEMPTS;
+            } else {
+                selected = Optional.of(choices.get(defaultAgentIndex));
+                logger.debug("LLM failed to select a valid option, defaulting to {}", selected.get().key());
+            }
         }
-
         this.next = selected.get().agent();
-        logger.debug("Selected agent for type: {}", selectedKey);
-
+        logger.debug("Selected agent for type: {}", selected.get().key());
         this.output = this.input;
         this.propagateOutput();
     }

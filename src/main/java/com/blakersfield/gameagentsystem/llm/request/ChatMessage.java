@@ -1,5 +1,8 @@
 package com.blakersfield.gameagentsystem.llm.request;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ChatMessage {
     private String role;
     private String content;
