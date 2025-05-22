@@ -1,6 +1,8 @@
 # Game Agent Rule Inference
-
-A Java-based application that provides an interface for interacting with Large Language Models (LLMs) through a chat interface and game action processing system.
+CSUCI MSCS project Spring 2025
+A Java Swing-based application that provides an interface for interacting with Large Language Models (LLMs) through a chat interface and game action processing system.
+The application uses SQLite as an embedded data store, HttpCore5 for web requests and jackson databind for serialization/deserialization.
+The purpose of this app is to serve as a basis for research into the capabilities of LLM's in infering information such as game rules based on interaction.
 
 ## Prerequisites
 
