@@ -49,7 +49,7 @@ When you first run the application, you'll be prompted to:
 
 2. Configure LLM Provider in the settings menu
    - Choose between Ollama (local) or OpenAI
-   - Ollama default settings are matched to the default configuration of running ```bash ollama serve ``` locally
+   - Ollama default settings are matched to the default configuration of running ```ollama serve ``` locally
 
 ## Application Features
 
