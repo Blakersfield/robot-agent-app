@@ -27,6 +27,7 @@ mvn clean install
 ```bash
 mvn exec:java -Dexec.mainClass="com.blakersfield.gameagentsystem.Main"
 ```
+Alternatively, use the maven plugin and run configuration of your IDE to build and run.
 
 ## Dependencies
 
@@ -46,15 +47,16 @@ When you first run the application, you'll be prompted to:
    - Password must be alphanumeric
    - This password will be used to access settings and encrypt sensitive data
 
-2. Configure LLM Provider
+2. Configure LLM Provider in the settings menu
    - Choose between Ollama (local) or OpenAI
-   - Configure the selected provider's settings
+   - Ollama default settings are matched to the default configuration of running ```bash ollama serve ``` locally
 
 ## Application Features
 
 ### Chat Interface
 
 The main chat interface allows you to:
+- Interact with the selected LLM to ensure operation
 - Send messages to the LLM
 - View conversation history
 - Create new chat sessions
@@ -64,7 +66,7 @@ The main chat interface allows you to:
 ### Interface Panel
 
 The interface panel provides:
-- Game action processing
+- Game action processing with agentic flow for experimentation
 - Rule extraction capabilities
 - Specialized LLM interactions for game-related tasks
 
@@ -80,9 +82,12 @@ Access the settings panel to configure:
    - Port (default: 11434)
 
 2. OpenAI Settings:
-   - API Key
-   - API Secret
+   - API Bearer token
    - Model selection (gpt-4, gpt-3.5-turbo, gpt-4-turbo)
+  
+3. General:
+   - Game Interface prompt
+   - Database panel with export, data clearing and sql console capabilites 
 
 ### Flow Panel
 
@@ -121,13 +126,18 @@ The database file is stored as `app.db` in the application directory.
    - Verify Maven installation: `mvn -version`
    - Check database permissions
    - Verify log files are writable
+   - if all else fails, delete app.db and reinitiate app storage
 
 2. If LLM integration fails:
    - For Ollama: Ensure Ollama is running locally
    - For OpenAI: Verify API key and secret are correct
    - Check network connectivity
    - Review application logs
-
+## Areas for future work and research
+   - Add flexible agent chain configuration
+   - Add interaction and robot/ROS specific agent and client (websocket)
+   - Add interface with voice capability
+   - Add usage of vector similarity for semantic comparison tasks
 ## Contributing
 
 1. Fork the repository
